@@ -529,6 +529,10 @@ function renderDashboard(c) {
           style="background:rgba(149,171,232,.15);border:1px solid rgba(149,171,232,.3);border-radius:5px;
           padding:6px 10px;color:var(--lavanda);font-size:9px;cursor:pointer;font-family:'Space Mono',monospace">
           VER EN MAPA →</button>
+          <button onclick="deleteOwnProject('${p.id}')"
+            style="background:rgba(232,85,85,.15);border:1px solid rgba(232,85,85,.3);border-radius:5px;
+            padding:6px 10px;color:var(--danger);font-size:9px;cursor:pointer;font-family:'Space Mono',monospace">
+            ✕ ELIMINAR</button>
       </div>`;
     });
     c.appendChild(ownDiv);
@@ -564,7 +568,27 @@ function initMap() {
   MAP_INSTANCE = map;
   MAP_MARKERS = [];
 
+  // District center coordinates for fallback
+  const DIST_COORDS = {
+    'San Isidro':[-12.0931,-77.0465],'Miraflores':[-12.1219,-77.0291],
+    'Barranco':[-12.1478,-77.0228],'Surco':[-12.15,-76.99],
+    'San Borja':[-12.1056,-77.0031],'La Molina':[-12.0856,-76.9424],
+    'Jesús María':[-12.0731,-77.0531],'Magdalena':[-12.0894,-77.0681],
+    'Lince':[-12.0831,-77.0361],'Pueblo Libre':[-12.0731,-77.0731],
+    'San Miguel':[-12.0769,-77.0928],'Surquillo':[-12.1206,-77.0131],
+    'Los Olivos':[-11.9781,-77.0681],'Ate':[-12.0281,-76.9281],
+    'Callao':[-12.0531,-77.1181],'VES':[-12.2181,-76.9481],
+    'Cercado':[-12.0553,-77.0311],'Chorrillos':[-12.17,-77.02],
+  };
+
   FILTERED.forEach(p => {
+    // Use geocoded coords or fallback to district center with random offset
+    if(!p.lat || !p.lng) {
+      const dc = DIST_COORDS[p.district];
+      if(!dc) return;
+      p.lat = dc[0] + (Math.random()-0.5)*0.02;
+      p.lng = dc[1] + (Math.random()-0.5)*0.02;
+    }
     if(!p.lat||!p.lng) return;
     const col = getMapColor(p);
     const sz = p.isOwn ? 38 : 28;
