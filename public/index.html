@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HYGGE · INTEL</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:#373737 transparent}
+:root{
+  --dark:#1A1A1A;--charcoal:#373737;--lavanda:#95ABE8;--naranja:#F7643B;
+  --crema:#E3E1DE;--light:#888;--mid:#555;--success:#4CAF88;
+  --warning:#F7C43B;--danger:#E85555;--purple:#A855F7;
+}
+body{background:var(--dark);color:var(--crema);font-family:system-ui,sans-serif;font-size:14px;min-height:100vh}
+.mono{font-family:'Space Mono',monospace}
+@keyframes pulse{from{opacity:.3;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOPBAR */
+#topbar{position:sticky;top:0;z-index:200;height:54px;background:var(--dark);
+  border-bottom:1px solid var(--charcoal);display:flex;align-items:center;
+  justify-content:space-between;padding:0 20px;gap:12px}
+#logo{font-family:'Space Mono',monospace;font-weight:700;font-size:14px;letter-spacing:2px;white-space:nowrap}
+#logo span{color:var(--lavanda)}
+#status-badge{font-size:10px;color:var(--light);font-family:'Space Mono',monospace;white-space:nowrap}
+.live-dot{color:var(--success);animation:pulse 2s ease-in-out infinite alternate}
+#agent-bar{display:flex;gap:6px;flex-wrap:wrap}
+.agent-btn{background:transparent;border:1px solid;border-radius:6px;padding:5px 10px;
+  font-size:10px;cursor:pointer;font-family:'Space Mono',monospace;transition:all .2s;white-space:nowrap}
+.agent-btn:hover{opacity:.8;transform:translateY(-1px)}
+#add-btn{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.5);
+  border-radius:6px;padding:5px 12px;color:var(--purple);font-size:10px;cursor:pointer;
+  font-family:'Space Mono',monospace;font-weight:700;white-space:nowrap;transition:all .2s}
+#add-btn:hover{opacity:.8}
+
+/* TABS */
+#tabs{border-bottom:1px solid var(--charcoal);padding:0 20px;display:flex;gap:2px;overflow-x:auto}
+.tab{background:none;border:none;padding:11px 14px;color:var(--light);font-size:10px;
+  cursor:pointer;font-family:'Space Mono',monospace;letter-spacing:1.5px;
+  border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab.active{color:var(--lavanda);border-bottom-color:var(--lavanda)}
+
+/* FILTERS */
+#filters{padding:8px 20px;border-bottom:1px solid rgba(85,85,85,.2);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(55,55,55,.3)}
+select{background:var(--charcoal);border:1px solid rgba(85,85,85,.4);border-radius:5px;
+  padding:5px 10px;color:var(--crema);font-size:10px;font-family:'Space Mono',monospace}
+#filter-info{font-size:10px;color:var(--light);font-family:'Space Mono',monospace}
+
+/* CONTENT */
+#content{padding:18px 20px;animation:fadeIn .3s ease}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--charcoal);border-radius:8px;border:1px solid rgba(85,85,85,.2);padding:16px}
+.kpi-label{font-size:9px;color:var(--light);font-family:'Space Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.kpi-value{font-size:20px;font-weight:800;font-family:'Space Mono',monospace;margin-bottom:2px}
+.kpi-sub{font-size:11px;color:var(--light)}
+.kpi-sub.up{color:var(--success)}
+.kpi-sub.down{color:var(--danger)}
+canvas.minichart{display:block;margin-top:6px}
+
+/* MACRO STRIP */
+.macro-strip{background:var(--charcoal);border-radius:8px;border:1px solid rgba(85,85,85,.2);
+  padding:10px 18px;display:flex;gap:28px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.macro-item{display:flex;gap:6px;align-items:center}
+.macro-label{font-size:9px;color:var(--light);font-family:'Space Mono',monospace}
+.macro-value{font-size:13px;font-weight:700;font-family:'Space Mono',monospace}
+
+/* TABLE */
+.data-table{background:var(--charcoal);border-radius:8px;border:1px solid rgba(85,85,85,.2);overflow:hidden}
+.data-table table{width:100%;border-collapse:collapse}
+.data-table th{padding:9px 10px;font-size:9px;color:var(--light);font-family:'Space Mono',monospace;
+  text-align:left;letter-spacing:1px;background:rgba(26,26,26,.5);border-bottom:1px solid rgba(85,85,85,.2)}
+.data-table td{padding:7px 10px;border-bottom:1px solid rgba(85,85,85,.1);font-size:12px}
+.data-table tr:hover{background:rgba(55,55,55,.5);cursor:pointer}
+.seg-badge{font-size:9px;font-weight:700;font-family:'Space Mono',monospace}
+.pct-bar{display:flex;align-items:center;gap:5px}
+.bar-track{width:36px;height:4px;background:var(--dark);border-radius:2px}
+.bar-fill{height:100%;border-radius:2px}
+
+/* MAP */
+#map{height:calc(100vh - 240px);border-radius:10px;overflow:hidden;border:1px solid var(--charcoal)}
+.map-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.map-ctrl-btn{background:var(--charcoal);border:1px solid rgba(85,85,85,.4);border-radius:5px;
+  padding:4px 10px;color:var(--crema);font-size:9px;cursor:pointer;
+  font-family:'Space Mono',monospace;letter-spacing:1px;transition:all .15s}
+.map-ctrl-btn.active{background:var(--lavanda);color:var(--dark);border-color:var(--lavanda)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--dark);border-radius:12px;width:min(680px,96vw);
+  max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--charcoal);
+  display:flex;justify-content:space-between;align-items:flex-start}
+.modal-tabs{display:flex;border-bottom:1px solid var(--charcoal);padding:0 16px}
+.modal-tab{background:none;border:none;padding:10px 12px;color:var(--light);font-size:10px;
+  cursor:pointer;font-family:'Space Mono',monospace;letter-spacing:1px;
+  border-bottom:2px solid transparent;transition:all .15s}
+.modal-tab.active{color:var(--lavanda);border-bottom-color:var(--lavanda)}
+.modal-body{flex:1;overflow-y:auto;padding:20px}
+.close-btn{background:none;border:none;color:var(--light);cursor:pointer;font-size:18px;line-height:1}
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.detail-card{background:var(--charcoal);border-radius:7px;padding:10px 12px}
+.detail-label{font-size:9px;color:var(--light);font-family:'Space Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.detail-value{font-size:16px;font-weight:800;font-family:'Space Mono',monospace}
+
+/* AGENT CHAT */
+.agent-modal{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.agent-box{background:var(--dark);border-radius:12px;width:min(600px,95vw);
+  height:min(680px,90vh);display:flex;flex-direction:column;overflow:hidden}
+.agent-header{padding:16px 20px;border-bottom:1px solid var(--charcoal);
+  display:flex;align-items:center;justify-content:space-between}
+.agent-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:85%;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6}
+.msg.user{align-self:flex-end}
+.msg.assistant{align-self:flex-start;background:var(--charcoal)}
+.agent-input-row{padding:12px 16px;border-top:1px solid var(--charcoal);display:flex;gap:8px}
+.agent-input{flex:1;background:var(--charcoal);border:1px solid rgba(85,85,85,.4);border-radius:6px;
+  padding:10px 14px;color:var(--crema);font-size:13px;outline:none;font-family:'Space Mono',monospace}
+.agent-send{border:none;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;
+  font-size:13px;font-family:'Space Mono',monospace;transition:opacity .15s}
+.agent-send:disabled{opacity:.5;cursor:not-allowed}
+.typing-dot{width:6px;height:6px;border-radius:50%;
+  animation:pulse 1s ease-in-out infinite alternate}
+.suggestion-btn{background:transparent;border:1px solid;border-radius:6px;
+  padding:8px 12px;font-size:12px;cursor:pointer;text-align:left;
+  font-family:'Space Mono',monospace;transition:opacity .15s;display:block;width:100%;margin-bottom:6px}
+.suggestion-btn:hover{opacity:.75}
+
+/* ADD PROJECT MODAL */
+.add-modal{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.add-box{background:var(--dark);border:1px solid rgba(168,85,247,.3);border-radius:12px;
+  width:min(560px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.add-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px;overflow-y:auto}
+.field-label{font-size:9px;color:var(--light);font-family:'Space Mono',monospace;letter-spacing:1px;margin-bottom:4px;text-transform:uppercase}
+.field-input{width:100%;background:var(--charcoal);border:1px solid rgba(85,85,85,.4);border-radius:5px;
+  padding:8px 10px;color:var(--crema);font-size:12px;outline:none;font-family:'Space Mono',monospace}
+.add-footer{padding:12px 20px;border-top:1px solid var(--charcoal);display:flex;justify-content:flex-end;gap:8px}
+.btn-cancel{background:none;border:1px solid rgba(85,85,85,.4);border-radius:6px;padding:8px 16px;
+  color:var(--light);cursor:pointer;font-family:'Space Mono',monospace;font-size:11px}
+.btn-add{background:var(--purple);border:none;border-radius:6px;padding:8px 20px;
+  color:white;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;font-weight:700}
+
+/* LOADER */
+#loader{position:fixed;inset:0;z-index:99999;background:var(--dark);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.spinner{width:32px;height:32px;border:3px solid rgba(149,171,232,.2);
+  border-top-color:var(--lavanda);border-radius:50%;animation:spin 1s linear infinite}
+#loader-text{font-family:'Space Mono',monospace;font-size:12px;color:var(--light)}
+
+/* DEFICIT TAB */
+.zone-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.zone-bar-label{width:100px;font-size:12px}
+.zone-bar-track{flex:1;height:8px;background:var(--dark);border-radius:4px;overflow:hidden}
+.zone-bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.zone-bar-val{width:55px;font-size:12px;font-family:'Space Mono',monospace;text-align:right}
+
+/* AFFORDABILITY */
+.afford-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.afford-card{background:var(--charcoal);border-radius:7px;padding:12px 14px}
+.afford-label{font-size:9px;color:var(--light);font-family:'Space Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.afford-value{font-size:18px;font-weight:800;font-family:'Space Mono',monospace}
+.afford-sub{font-size:10px;color:var(--light);margin-top:2px}
+.capacity-bar{height:10px;background:var(--dark);border-radius:5px;overflow:hidden;position:relative;margin-bottom:4px}
+.capacity-fill{height:100%;border-radius:5px;transition:width .5s ease}
+.capacity-line{position:absolute;top:0;width:2px;height:100%;background:var(--crema);opacity:.6}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:18px;letter-spacing:3px">
+    HYGGE<span style="color:var(--lavanda)">·</span>INTEL
+  </div>
+  <div class="spinner"></div>
+  <div id="loader-text">Cargando datos del mercado...</div>
+</div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div id="logo" class="mono">HYGGE<span>·</span>INTEL</div>
+    <div style="width:1px;height:18px;background:var(--charcoal)"></div>
+    <div id="status-badge" class="mono">Lima RE Intelligence · <span class="live-dot">●</span> LIVE</div>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <button id="add-btn" onclick="openAddModal()">★ + MI PROYECTO</button>
+    <div id="agent-bar"></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div id="tabs">
+  <button class="tab active" onclick="switchTab('dashboard')">DASHBOARD</button>
+  <button class="tab" onclick="switchTab('mapa')">MAPA</button>
+  <button class="tab" onclick="switchTab('proyectos')">PROYECTOS</button>
+  <button class="tab" onclick="switchTab('poder')">PODER ADQUISITIVO</button>
+  <button class="tab" onclick="switchTab('deficit')">DÉFICIT</button>
+</div>
+
+<!-- FILTERS -->
+<div id="filters">
+  <select id="f-dist" onchange="applyFilters()">
+    <option value="">Todos los distritos</option>
+  </select>
+  <select id="f-seg" onchange="applyFilters()">
+    <option value="">Todos los segmentos</option>
+    <option value="A">Segmento A</option>
+    <option value="B">Segmento B</option>
+    <option value="C">Segmento C</option>
+  </select>
+  <select id="f-stage" onchange="applyFilters()">
+    <option value="">Todas las etapas</option>
+    <option>En planos</option><option>En construcción</option><option>Entrega inmediata</option>
+  </select>
+  <span id="filter-info" class="mono">— proyectos</span>
+</div>
+
+<div id="content"></div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ─── STATE ─────────────────────────────────────────────────
+const TC = 3.78;
+let ALL_PROJECTS = [];
+let OWN_PROJECTS = [];
+let FILTERED = [];
+let CURRENT_TAB = 'dashboard';
+let MAP_INSTANCE = null;
+let MAP_MARKERS = [];
+let MAP_METRIC = 'lista';
+let SELECTED_PROJECT = null;
+let ACTIVE_AGENT = null;
+let AGENT_HISTORY = [];
+let SCRAPE_DATE = '';
+
+const T = {
+  charcoal:'#373737',lavanda:'#95ABE8',naranja:'#F7643B',crema:'#E3E1DE',
+  dark:'#1A1A1A',light:'#888',success:'#4CAF88',warning:'#F7C43B',
+  danger:'#E85555',purple:'#A855F7',
+};
+
+// ─── SALARY DATA (INEI/ENAHO) ───────────────────────────────
+const SALARY = {
+  'San Isidro':   {junior:4200,mid:7500,senior:14000,exec:28000,pm:1.7},
+  'Miraflores':   {junior:3800,mid:6500,senior:11000,exec:22000,pm:1.7},
+  'Barranco':     {junior:3500,mid:5800,senior:9500,exec:18000,pm:1.65},
+  'Surco':        {junior:3200,mid:5500,senior:9000,exec:17000,pm:1.65},
+  'San Borja':    {junior:3300,mid:5800,senior:9500,exec:18000,pm:1.65},
+  'La Molina':    {junior:3000,mid:5200,senior:8500,exec:16000,pm:1.6},
+  'Jesús María':  {junior:2800,mid:4800,senior:7800,exec:14000,pm:1.6},
+  'Magdalena':    {junior:2700,mid:4500,senior:7200,exec:13000,pm:1.6},
+  'Lince':        {junior:2500,mid:4200,senior:6800,exec:12000,pm:1.55},
+  'Surquillo':    {junior:2400,mid:4000,senior:6500,exec:11000,pm:1.55},
+  'Pueblo Libre': {junior:2600,mid:4400,senior:7000,exec:12500,pm:1.6},
+  'San Miguel':   {junior:2700,mid:4600,senior:7400,exec:13500,pm:1.6},
+  'Los Olivos':   {junior:2000,mid:3300,senior:5200,exec:9000,pm:1.55},
+  'Ate':          {junior:1800,mid:2900,senior:4500,exec:8000,pm:1.5},
+  'Callao':       {junior:1900,mid:3100,senior:5000,exec:8500,pm:1.5},
+};
+const BANKS = [
+  {bank:'BCP',rate:7.8,plazo:20,currency:'PEN'},
+  {bank:'Interbank',rate:8.1,plazo:20,currency:'PEN'},
+  {bank:'BBVA',rate:8.3,plazo:20,currency:'PEN'},
+  {bank:'Scotiabank',rate:7.9,plazo:20,currency:'PEN'},
+  {bank:'BCP USD',rate:6.5,plazo:20,currency:'USD'},
+  {bank:'BBVA USD',rate:6.8,plazo:20,currency:'USD'},
+];
+const PERSONAS = {
+  A:{label:'Ejecutivo / Empresario',icon:'◈',color:T.naranja,profiles:['exec','senior'],
+     desc:'35–55 años, ejecutivo C-suite o empresario. Compra en USD. Prioriza diseño y exclusividad.',
+     finPct:0.30,cuotaMax:0.25},
+  B:{label:'Profesional Senior / Pareja',icon:'◉',color:T.lavanda,profiles:['senior','mid'],
+     desc:'30–45 años, profesional o gerencia media. Generalmente pareja doble ingreso.',
+     finPct:0.70,cuotaMax:0.30},
+  C:{label:'Profesional Joven / Familia',icon:'◎',color:T.success,profiles:['mid','junior'],
+     desc:'25–38 años, primera vivienda. Alta dependencia de crédito hipotecario.',
+     finPct:0.90,cuotaMax:0.35},
+};
+
+// ─── AGENTS ─────────────────────────────────────────────────
+const AGENTS = {
+  analyst:{label:'DATA ANALYST',icon:'◈',color:T.lavanda,
+    sys:`Eres el analista de datos de mercado inmobiliario de Lima para Hygge Inmobiliaria.
+CONTEXTO REAL (datos scrapeados de Nexo Inmobiliario hoy):
+- Lima Moderna seg A: $2,500–$3,800/m²
+- Lima Moderna seg B: $1,400–$2,500/m²  
+- Lima Centro: $1,500–$2,000/m²
+- Lima Norte/Este: $1,000–$1,500/m²
+- Velocidad ventas promedio: 2.1 u/mes | Absorción: 4.5%
+- Stock: ~10,400 unidades | Tiempo agotamiento: 17 meses
+- Gap lista→cierre: seg A -4 a -6%, seg B -5 a -7%, seg C -7 a -12%
+Responde conciso, ejecutivo, con números reales. En español. SIEMPRE termina con una sección '## CONCLUSIÓN' con 2-3 puntos accionables para Hygge Inmobiliaria.`,
+    suggestions:['¿Cuál es el gap lista→cierre real en San Isidro?','¿Qué zonas tienen mejor absorción ahora?','¿Cómo fijar el precio de lista óptimo para un proyecto A en Miraflores?']},
+  news:{label:'NEWS ANALYST',icon:'◉',color:T.naranja,
+    sys:`Analista de noticias inmobiliarias para Hygge. Jun 2026: elecciones 2026 Perú generan volatilidad cambiaria. BCRP interviene. Lima Norte/Este crecen con VIS. Premium sostenido. Responde ejecutivo con impacto directo para desarrolladores. SIEMPRE termina con '## CONCLUSIÓN' con 2-3 implicancias concretas para Hygge.`,
+    suggestions:['¿Qué impacto tienen las elecciones 2026 en precios?','¿Hay cambios regulatorios en construcción?','¿Qué zonas ganan más tracción?']},
+  macro:{label:'MACRO / FOREX',icon:'◎',color:T.success,
+    sys:`Analista macro y forex para real estate peruano premium. Jun 2026: USD/PEN 3.78, tasa hip 8.2% (-0.3% vs año ant), inflación 2.1%, PBI const +4.8%, Fed 4.25%, DXY ~104. Responde conciso con implicancia directa para pricing y timing. SIEMPRE termina con '## CONCLUSIÓN' con 2-3 acciones concretas para Hygge.`,
+    suggestions:['¿Subirá el dólar este trimestre?','¿Cuándo bajarán más las tasas?','¿Cómo afecta el DXY a proyectos en USD?']},
+  predictor:{label:'PREDICTOR IA',icon:'◆',color:T.warning,
+    sys:`Modelo predictivo para mercado inmobiliario Lima. Tendencias: precios +1.5% en 2 años, absorción 4.0→4.5%, stock baja 22→17 meses, Lima Norte/Este +46%/+110%. Da predicciones con probabilidades, rangos y riesgos explícitos. SIEMPRE termina con '## CONCLUSIÓN' con 2-3 recomendaciones concretas para Hygge.`,
+    suggestions:['¿Cuánto subirán precios en San Isidro en 12 meses?','¿Cuándo se agota el stock en Lima Moderna?','¿Qué segmento tendrá mejor absorción en 2027?']},
+};
+
+// ─── UTILS ──────────────────────────────────────────────────
+const fmt = (n,d=0) => n!=null ? n.toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}) : '—';
+const fmtUSD = n => n!=null ? `$${fmt(n)}` : '—';
+const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+const segColor = s => s==='A'?T.naranja:s==='B'?T.lavanda:T.success;
+
+function miniChart(data, color, w=200, h=50) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h; c.className = 'minichart';
+  const ctx = c.getContext('2d');
+  const mn = Math.min(...data), mx = Math.max(...data), range = mx-mn||1;
+  const pts = data.map((v,i)=>({x:i/(data.length-1)*w,y:h-((v-mn)/range)*(h-8)-4}));
+  const g = ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,color+'44'); g.addColorStop(1,color+'00');
+  ctx.beginPath(); ctx.moveTo(pts[0].x,h);
+  pts.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x,h); ctx.closePath();
+  ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  pts.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  const l=pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(l.x,l.y,3,0,Math.PI*2);
+  ctx.fillStyle=color; ctx.fill();
+  return c;
+}
+
+function kpiCard({label, value, sub, trend, color, chartData}) {
+  const d = document.createElement('div');
+  d.className = 'kpi';
+  d.style.borderColor = `${color||T.lavanda}22`;
+  d.innerHTML = `
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value" style="color:${color||T.crema}">${value}</div>
+    ${sub ? `<div class="kpi-sub ${trend>0?'up':trend<0?'down':''}">${trend>0?'▲':trend<0?'▼':'—'} ${sub}</div>` : ''}
+  `;
+  if (chartData) d.appendChild(miniChart(chartData, color||T.lavanda, 180, 36));
+  return d;
+}
+
+// ─── DATA LOADING ───────────────────────────────────────────
+async function loadData() {
+  const saved = localStorage.getItem('hygge_own_projects');
+  if (saved) { try { OWN_PROJECTS = JSON.parse(saved); } catch(e) {} }
+  try {
+    document.getElementById('loader-text').textContent = 'Conectando con Nexo Inmobiliario...';
+    const r = await fetch('./projects.json');
+    if (!r.ok) throw new Error('No data');
+    const data = await r.json();
+    ALL_PROJECTS = data.projects || [];
+    SCRAPE_DATE = data.date || '';
+    document.getElementById('loader-text').textContent = `${ALL_PROJECTS.length} proyectos cargados`;
+
+    // Populate district filter
+    const dists = [...new Set(ALL_PROJECTS.map(p=>p.district).filter(Boolean))].sort();
+    const fDist = document.getElementById('f-dist');
+    dists.forEach(d => { const o=document.createElement('option'); o.value=d; o.text=d; fDist.appendChild(o); });
+
+    await new Promise(r=>setTimeout(r,400));
+    document.getElementById('loader').classList.add('hidden');
+    applyFilters();
+    setupAgentBar();
+  } catch(e) {
+    document.getElementById('loader-text').textContent = 'Error cargando datos. Verifica que el scraper haya corrido.';
+  }
+}
+
+function deleteOwnProject(id) {
+  OWN_PROJECTS = OWN_PROJECTS.filter(p => p.id !== id);
+  localStorage.setItem('hygge_own_projects', JSON.stringify(OWN_PROJECTS));
+  applyFilters();
+}
+
+function applyFilters() {
+  const dist = document.getElementById('f-dist').value;
+  const seg  = document.getElementById('f-seg').value;
+  const stage= document.getElementById('f-stage').value;
+  const all  = [...ALL_PROJECTS, ...OWN_PROJECTS];
+  FILTERED = all.filter(p => {
+    if(dist && p.district !== dist) return false;
+    if(seg  && p.segment !== seg) return false;
+    if(stage && p.stage && !p.stage.toLowerCase().includes(stage.toLowerCase())) return false;
+    return true;
+  });
+  const own = FILTERED.filter(p=>p.isOwn);
+  document.getElementById('filter-info').textContent =
+    `${FILTERED.length} proyectos${own.length?' ('+own.length+' propios)':''} · ${SCRAPE_DATE||'hoy'}`;
+  renderTab();
+}
+
+// ─── TAB SWITCHING ──────────────────────────────────────────
+function switchTab(tab) {
+  CURRENT_TAB = tab;
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['dashboard','mapa','proyectos','poder','deficit'][i]===tab);
+  });
+  renderTab();
+}
+
+function renderTab() {
+  const c = document.getElementById('content');
+  c.innerHTML = '';
+  c.style.animation = 'none';
+  requestAnimationFrame(() => { c.style.animation = 'fadeIn .3s ease'; });
+  if(CURRENT_TAB==='dashboard') renderDashboard(c);
+  else if(CURRENT_TAB==='mapa')  renderMapa(c);
+  else if(CURRENT_TAB==='proyectos') renderProyectos(c);
+  else if(CURRENT_TAB==='poder') renderPoder(c);
+  else if(CURRENT_TAB==='deficit') renderDeficit(c);
+}
+
+// ─── DASHBOARD ──────────────────────────────────────────────
+function renderDashboard(c) {
+  const market = FILTERED.filter(p=>!p.isOwn);
+  const own    = FILTERED.filter(p=>p.isOwn);
+  const prices = market.map(p=>p.list_price_m2_usd).filter(Boolean);
+  const closes = market.map(p=>p.close_price_m2_usd).filter(Boolean);
+  const vels   = market.map(p=>p.velocidad||0).filter(Boolean);
+  const avgL   = Math.round(avg(prices));
+  const avgC   = Math.round(avg(closes));
+  const avgG   = Math.round(avg(market.map(p=>p.discount_pct||0)));
+  const hists  = market.filter(p=>p.price_history&&p.price_history.length>=2);
+
+  // KPI grid
+  const grid = document.createElement('div');
+  grid.className = 'kpi-grid';
+  [
+    {label:'Precio Lista /m²', value:fmtUSD(avgL), sub:'+1.5% 2 años', trend:1, color:T.lavanda,
+     chartData:prices.slice(0,18)},
+    {label:'Precio Cierre /m²', value:fmtUSD(avgC), sub:'precio real negociado', trend:0, color:T.success},
+    {label:'Gap Lista→Cierre', value:`-${avgG}%`, sub:'descuento promedio', trend:-1, color:T.naranja},
+    {label:'Proyectos activos', value:fmt(market.length), sub:`${FILTERED.length} total`, trend:1, color:T.crema},
+    {label:'Con historial precios', value:fmt(hists.length), sub:`${Math.round(hists.length/market.length*100)}% del total`, trend:1, color:T.lavanda},
+    {label:'Proyectos propios', value:fmt(own.length), sub:own.length?'en mapa':'agrega con ★', trend:own.length?1:0, color:T.purple},
+  ].forEach(k => grid.appendChild(kpiCard(k)));
+  c.appendChild(grid);
+
+  // Macro strip
+  const macro = document.createElement('div');
+  macro.className = 'macro-strip';
+  macro.innerHTML = `<span class="mono" style="font-size:9px;color:var(--light);letter-spacing:2px">MACRO</span>`;
+  [
+    {label:'USD/PEN',value:'3.78',color:T.danger},
+    {label:'Tasa hip.',value:'8.2%',color:T.lavanda},
+    {label:'Inflación',value:'2.1%',color:T.crema},
+    {label:'PBI Const.',value:'+4.8%',color:T.success},
+    {label:'Déficit',value:'612K u.',color:T.naranja},
+  ].forEach(m => {
+    macro.innerHTML += `<div class="macro-item">
+      <span class="macro-label">${m.label}</span>
+      <span class="macro-value" style="color:${m.color}">${m.value}</span>
+    </div>`;
+  });
+  c.appendChild(macro);
+
+  // Zone breakdown table
+  const zones = ['Lima Moderna','Lima Norte','Lima Este','Lima Sur','Callao','Lima Centro'];
+  const zoneTable = document.createElement('div');
+  zoneTable.className = 'data-table';
+  zoneTable.style.marginBottom = '16px';
+  let rows = '';
+  zones.forEach(z => {
+    const ps = market.filter(p=>p.zone===z);
+    if(!ps.length) return;
+    const aL = Math.round(avg(ps.map(p=>p.list_price_m2_usd||0).filter(Boolean)));
+    const aC = Math.round(avg(ps.map(p=>p.close_price_m2_usd||0).filter(Boolean)));
+    const aG = Math.round(avg(ps.map(p=>p.discount_pct||0)));
+    const stages = {planos:0,const:0,entrega:0};
+    ps.forEach(p=>{
+      const s=(p.stage||'').toLowerCase();
+      if(s.includes('plano')) stages.planos++;
+      else if(s.includes('construcci')) stages.const++;
+      else if(s.includes('entrega')) stages.entrega++;
+    });
+    rows += `<tr>
+      <td>${z}</td>
+      <td class="mono" style="color:var(--light)">${ps.length}</td>
+      <td class="mono" style="color:var(--lavanda);font-weight:700">${fmtUSD(aL)}</td>
+      <td class="mono" style="color:var(--success);font-weight:700">${fmtUSD(aC)}</td>
+      <td class="mono" style="color:var(--naranja);font-weight:700">-${aG}%</td>
+      <td style="font-size:10px;color:var(--light)">${stages.planos}p/${stages.const}c/${stages.entrega}e</td>
+    </tr>`;
+  });
+  zoneTable.innerHTML = `<table>
+    <thead><tr>
+      <th>Zona</th><th>Proyectos</th><th>Lista/m²</th><th>Cierre/m²</th><th>Gap</th><th>Etapas p/c/e</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  c.appendChild(zoneTable);
+
+  // Own projects comparison
+  if(own.length) {
+    const ownDiv = document.createElement('div');
+    ownDiv.style.cssText = 'background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:16px;margin-bottom:16px';
+    ownDiv.innerHTML = `<div class="mono" style="font-size:10px;color:var(--purple);letter-spacing:1.5px;margin-bottom:12px">★ MIS PROYECTOS — ANÁLISIS COMPARATIVO</div>`;
+    own.forEach(p => {
+      const comps = market.filter(m=>m.district===p.district&&m.segment===p.segment);
+      const mktL = Math.round(avg(comps.map(m=>m.list_price_m2_usd||0).filter(Boolean)));
+      const diff = p.list_price_m2_usd - mktL;
+      ownDiv.innerHTML += `<div style="background:var(--charcoal);border-radius:7px;padding:12px 14px;
+        display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px">
+        <div><div style="font-size:13px;font-weight:700;color:var(--purple)">★ ${p.name}</div>
+          <div style="font-size:10px;color:var(--light)">${p.district} · Seg ${p.segment} · ${comps.length} comparables</div></div>
+        <div><div class="mono" style="font-size:9px;color:var(--light)">TU LISTA</div>
+          <div class="mono" style="font-size:14px;font-weight:700;color:var(--lavanda)">${fmtUSD(p.list_price_m2_usd)}</div></div>
+        <div><div class="mono" style="font-size:9px;color:var(--light)">MKT AVG</div>
+          <div class="mono" style="font-size:14px;font-weight:700;color:var(--crema)">${fmtUSD(mktL)}</div></div>
+        <div><div class="mono" style="font-size:9px;color:var(--light)">VS MKT</div>
+          <div class="mono" style="font-size:14px;font-weight:700;color:${diff>0?T.naranja:T.success}">${diff>0?'+':''}${fmtUSD(diff)}</div></div>
+        <button onclick="openAgent('analyst',${JSON.stringify(JSON.stringify(p)).slice(1,-1)})"
+          style="background:rgba(149,171,232,.15);border:1px solid rgba(149,171,232,.3);border-radius:5px;
+          padding:6px 10px;color:var(--lavanda);font-size:9px;cursor:pointer;font-family:'Space Mono',monospace">
+          ANALIZAR →</button>
+      </div>`;
+    });
+    c.appendChild(ownDiv);
+  }
+}
+
+// ─── MAPA ────────────────────────────────────────────────────
+function renderMapa(c) {
+  const ctrl = document.createElement('div');
+  ctrl.className = 'map-controls';
+  ctrl.innerHTML = `<span class="mono" style="font-size:9px;color:var(--light);letter-spacing:1px">COLOR:</span>`;
+  ['lista','cierre','gap','segmento'].forEach(m => {
+    ctrl.innerHTML += `<button class="map-ctrl-btn ${MAP_METRIC===m?'active':''}" onclick="setMapMetric('${m}')">${m.toUpperCase()}</button>`;
+  });
+  c.appendChild(ctrl);
+
+  const mapDiv = document.createElement('div');
+  mapDiv.id = 'map';
+  c.appendChild(mapDiv);
+
+  setTimeout(() => initMap(), 50);
+}
+
+function initMap() {
+  if(MAP_INSTANCE) {
+    MAP_INSTANCE.remove();
+    MAP_INSTANCE = null;
+  }
+  const map = L.map('map', {center:[-12.08,-77.04],zoom:12,zoomControl:false});
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {attribution:'©CartoDB',subdomains:'abcd',maxZoom:19}).addTo(map);
+  MAP_INSTANCE = map;
+  MAP_MARKERS = [];
+
+  FILTERED.forEach(p => {
+    if(!p.lat||!p.lng) return;
+    const col = getMapColor(p);
+    const sz = p.isOwn ? 38 : 28;
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;
+        background:${col}22;border:2px solid ${col};display:flex;align-items:center;justify-content:center;
+        font-size:${p.isOwn?11:9}px;font-weight:700;color:${col};font-family:'Space Mono',monospace;
+        cursor:pointer;box-shadow:0 0 ${p.isOwn?20:10}px ${col}${p.isOwn?'88':'44'};
+        ${p.isOwn?'animation:pulse 2s ease-in-out infinite alternate;':''}">
+        ${p.isOwn?'H':p.segment}</div>`,
+      iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],
+    });
+    const mk = L.marker([p.lat,p.lng],{icon}).addTo(map)
+      .bindPopup(`<div style="background:${T.dark};color:${T.crema};padding:12px;border-radius:6px;
+        min-width:230px;font-family:'Space Mono',monospace;font-size:11px;border:1px solid ${col}44">
+        <div style="font-size:13px;font-weight:700;color:${col};margin-bottom:6px">${p.isOwn?'★ ':''}${p.name}</div>
+        <div style="color:${T.light};margin-bottom:8px">${p.developer} · ${p.district}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <div><span style="color:${T.light}">Lista</span><br><strong>${fmtUSD(p.list_price_m2_usd)}/m²</strong></div>
+          <div><span style="color:${T.light}">Cierre est.</span><br><strong style="color:${T.success}">${fmtUSD(p.close_price_m2_usd)}/m²</strong></div>
+          <div><span style="color:${T.light}">Gap</span><br><strong style="color:${T.naranja}">-${p.discount_pct||0}%</strong></div>
+          <div><span style="color:${T.light}">Área</span><br><strong>${p.min_area_m2||'?'}–${p.max_area_m2||'?'} m²</strong></div>
+        </div></div>`,{maxWidth:280})
+      .on('click',()=>openProject(p));
+    MAP_MARKERS.push(mk);
+  });
+}
+
+function getMapColor(p) {
+  if(p.isOwn) return T.purple;
+  const v = p.list_price_m2_usd||0;
+  if(MAP_METRIC==='lista'||MAP_METRIC==='cierre') {
+    return v>2800?T.naranja:v>2000?T.lavanda:v>1400?T.warning:T.success;
+  }
+  if(MAP_METRIC==='gap') {
+    const g=p.discount_pct||0;
+    return g>10?T.naranja:g>6?T.warning:T.success;
+  }
+  return p.segment==='A'?T.naranja:p.segment==='B'?T.lavanda:T.success;
+}
+
+function setMapMetric(m) {
+  MAP_METRIC = m;
+  renderTab();
+}
+
+// ─── PROYECTOS TABLE ─────────────────────────────────────────
+function renderProyectos(c) {
+  const table = document.createElement('div');
+  table.className = 'data-table';
+  const headers = ['Proyecto','Distrito','Seg','Etapa','Lista/m²','Cierre/m²','Gap','Ticket','Área','Hist.',''];
+  table.innerHTML = `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody id="proj-tbody"></tbody></table>`;
+  c.appendChild(table);
+
+  const tbody = document.getElementById('proj-tbody');
+  FILTERED.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.onclick = () => openProject(p);
+    if(p.isOwn) tr.style.background = 'rgba(168,85,247,.05)';
+    tr.innerHTML = `
+      <td style="font-weight:600;color:${p.isOwn?T.purple:T.crema}">${p.isOwn?'★ ':''}${p.name}</td>
+      <td style="color:var(--light);font-size:11px">${p.district||'?'}</td>
+      <td><span class="seg-badge" style="color:${segColor(p.segment)}">${p.segment}</span></td>
+      <td style="font-size:10px;color:var(--light)">${(p.stage||'?').replace('En construcción','Const.').replace('Entrega inmediata','Entrega').replace('En planos','Planos')}</td>
+      <td class="mono" style="color:var(--lavanda);font-weight:700">${fmtUSD(p.list_price_m2_usd)}</td>
+      <td class="mono" style="color:var(--success);font-weight:700">${fmtUSD(p.close_price_m2_usd)}</td>
+      <td class="mono" style="color:var(--naranja)">-${p.discount_pct||0}%</td>
+      <td class="mono" style="font-size:11px">${p.list_ticket_usd?'$'+(p.list_ticket_usd/1000).toFixed(0)+'K':'—'}</td>
+      <td class="mono" style="color:var(--light);font-size:10px">${p.min_area_m2||'?'}–${p.max_area_m2||'?'}m²</td>
+      <td class="mono" style="color:var(--light);font-size:11px">${(p.price_history||[]).length}</td>
+      <td><button onclick="event.stopPropagation();openAgent('analyst','${p.name} en ${p.district}, seg ${p.segment}, lista ${fmtUSD(p.list_price_m2_usd)}/m², cierre ${fmtUSD(p.close_price_m2_usd)}/m²')"
+        style="background:rgba(149,171,232,.1);border:1px solid rgba(149,171,232,.3);border-radius:4px;
+        padding:3px 7px;color:var(--lavanda);font-size:8px;cursor:pointer;font-family:'Space Mono',monospace">IA →</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ─── PROJECT DETAIL MODAL ────────────────────────────────────
+function openProject(p) {
+  SELECTED_PROJECT = p;
+  const col = p.isOwn ? T.purple : T.lavanda;
+  const comps = FILTERED.filter(m=>m.id!==p.id&&m.district===p.district&&m.segment===p.segment).slice(0,4);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); };
+
+  overlay.innerHTML = `
+  <div class="modal" style="border:1px solid ${col}44;box-shadow:0 0 60px ${col}22">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:${col};font-family:'Space Mono',monospace">${p.isOwn?'★ ':''}${p.name}</div>
+        <div style="font-size:11px;color:var(--light);margin-top:3px">${p.developer} · ${p.district} · Seg ${p.segment}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="exportProjectPDF(document.querySelector('.modal-overlay')._project)"
+          style="background:rgba(149,171,232,.15);border:1px solid rgba(149,171,232,.4);border-radius:5px;
+          padding:6px 12px;color:var(--lavanda);font-size:10px;cursor:pointer;
+          font-family:'Space Mono',monospace;letter-spacing:1px">
+          ↓ PDF
+        </button>
+        <div style="display:flex;gap:8px;align-items:center">
+        
+        <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      </div>
+      </div>
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchModalTab(this,'overview')">RESUMEN</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'precios')">PRECIOS</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'afford')">PODER ADQUISITIVO</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'comps')">COMPARABLES</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      ${renderOverview(p)}
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+  overlay._project = p;
+  overlay._comps = comps;
+}
+
+function switchModalTab(btn, tab) {
+  btn.closest('.modal').querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const p = document.querySelector('.modal-overlay')._project;
+  const comps = document.querySelector('.modal-overlay')._comps;
+  const body = document.getElementById('modal-body');
+  if(tab==='overview') body.innerHTML = renderOverview(p);
+  else if(tab==='precios') body.innerHTML = renderPreciosTab(p);
+  else if(tab==='afford') renderAffordTab(p, body);
+  else if(tab==='comps') body.innerHTML = renderCompsTab(comps, p);
+}
+
+function renderOverview(p) {
+  const gap = Math.round((p.list_price_m2_usd - (p.close_price_m2_usd||0)) * (p.min_area_m2||0) * TC);
+  const items = [
+    {label:'Lista/m²',value:fmtUSD(p.list_price_m2_usd),color:T.lavanda},
+    {label:'Cierre est./m²',value:fmtUSD(p.close_price_m2_usd),color:T.success},
+    {label:'Descuento',value:`-${p.discount_pct||0}%`,color:T.naranja},
+    {label:'Ticket lista',value:p.list_ticket_usd?'$'+(p.list_ticket_usd/1000).toFixed(0)+'K':'—',color:T.crema},
+    {label:'Ticket cierre',value:p.close_ticket_usd?'$'+(p.close_ticket_usd/1000).toFixed(0)+'K':'—',color:T.success},
+    {label:'Ahorro cierre',value:gap?`S/${fmt(gap)}`:'—',color:T.naranja},
+    {label:'Área mín',value:`${p.min_area_m2||'?'} m²`,color:T.crema},
+    {label:'Área máx',value:`${p.max_area_m2||'?'} m²`,color:T.crema},
+    {label:'Dormitorios',value:p.dorms_min?`${p.dorms_min}–${p.dorms_max}D`:'—',color:T.crema},
+    {label:'Etapa',value:p.stage||'?',color:T.light},
+    {label:'Entrega',value:p.delivery||'?',color:T.light},
+    {label:'Historial',value:`${(p.price_history||[]).length} registros`,color:T.lavanda},
+  ];
+  return `<div class="detail-grid">${items.map(i=>`
+    <div class="detail-card">
+      <div class="detail-label">${i.label}</div>
+      <div class="detail-value" style="color:${i.color}">${i.value}</div>
+    </div>`).join('')}</div>`;
+}
+
+function renderPreciosTab(p) {
+  const hist = p.price_history||[];
+  const rows = hist.map(h=>`<tr>
+    <td class="mono" style="font-size:11px">${h.fecha}</td>
+    <td style="font-size:11px">${h.estado}</td>
+    <td class="mono" style="color:var(--lavanda);font-weight:700">${h.currency==='USD'?'$'+fmt(h.precio):'S/'+fmt(h.precio)}</td>
+    <td class="mono" style="color:var(--success)">${fmtUSD(h.precio_usd)}</td>
+  </tr>`).join('');
+  return `
+    <div style="margin-bottom:16px;background:var(--charcoal);border-radius:8px;padding:14px">
+      <div class="mono" style="font-size:9px;color:var(--light);letter-spacing:1.5px;margin-bottom:8px">HISTORIAL DE PRECIOS — Nexo Inmobiliario</div>
+      ${hist.length ? '' : '<div style="color:var(--light);font-size:12px">Sin historial disponible. Acumula con el tiempo.</div>'}
+    </div>
+    ${hist.length ? `<div class="data-table"><table>
+      <thead><tr><th>Fecha</th><th>Estado</th><th>Precio</th><th>USD equiv.</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>` : ''}
+    <div style="margin-top:12px;font-size:11px;color:var(--light)">
+      El precio de cierre estimado aplica un descuento de <strong style="color:var(--naranja)">-${p.discount_pct||0}%</strong> 
+      sobre el precio de lista, calibrado por etapa y segmento. 
+      Con más historial diario, la estimación se refina automáticamente.
+    </div>`;
+}
+
+function renderAffordTab(p, container) {
+  const persona = PERSONAS[p.segment||'B'];
+  const sal = SALARY[p.district] || SALARY['Surco'] || {junior:3000,mid:5000,senior:8000,exec:15000,pm:1.65};
+
+  container.innerHTML = `
+    <div style="background:${persona.color}11;border:1px solid ${persona.color}33;border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:${persona.color};font-family:'Space Mono',monospace;margin-bottom:6px">
+        ${persona.icon} BUYER PERSONA — SEG ${p.segment}
+      </div>
+      <div style="font-size:12px;color:var(--crema);line-height:1.6">${persona.desc}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <select id="af-bank" style="background:var(--charcoal);border:1px solid rgba(85,85,85,.4);border-radius:5px;padding:6px 10px;color:var(--crema);font-size:11px;font-family:'Space Mono',monospace">
+        ${BANKS.map((b,i)=>`<option value="${i}">${b.bank} — ${b.rate}% ${b.currency} ${b.plazo}a</option>`).join('')}
+      </select>
+      <button id="af-solo" class="map-ctrl-btn active" onclick="toggleModality('solo')">SOLO</button>
+      <button id="af-pareja" class="map-ctrl-btn" onclick="toggleModality('pareja')">EN PAREJA</button>
+    </div>
+    <div id="af-results"></div>`;
+
+  window._afModality = 'solo';
+  window._afProject = p;
+  window._afPersona = persona;
+  window._afSal = sal;
+  document.getElementById('af-bank').onchange = updateAfford;
+  updateAfford();
+}
+
+function toggleModality(m) {
+  window._afModality = m;
+  document.getElementById('af-solo').classList.toggle('active', m==='solo');
+  document.getElementById('af-pareja').classList.toggle('active', m==='pareja');
+  updateAfford();
+}
+
+function updateAfford() {
+  const p = window._afProject;
+  const persona = window._afPersona;
+  const sal = window._afSal;
+  const bIdx = +document.getElementById('af-bank').value;
+  const bank = BANKS[bIdx];
+  const modality = window._afModality;
+  const profile = persona.profiles[0];
+  const salBase = sal[profile] || sal.mid || 5000;
+  const salNet = modality==='pareja' ? Math.round(salBase * sal.pm) : salBase;
+  const precio = p.close_ticket_usd||p.list_ticket_usd||0;
+  const loanUSD = precio * persona.finPct;
+  const r = bank.rate/100/12;
+  const n = bank.plazo*12;
+  const cuotaBase = loanUSD * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+  const cuotaPEN = bank.currency==='USD' ? Math.round(cuotaBase*TC) : Math.round(cuotaBase);
+  const cuotaDisplay = bank.currency==='USD' ? Math.round(cuotaBase) : Math.round(cuotaBase);
+  const maxCuota = salNet * persona.cuotaMax;
+  const ratio = cuotaPEN / maxCuota;
+  const pct = Math.round(ratio*100);
+  const ok = ratio <= 1;
+  const enganche = Math.round(precio * (1-persona.finPct));
+  const col = pct<70?T.success:pct<100?T.warning:T.danger;
+
+  document.getElementById('af-results').innerHTML = `
+    <div class="afford-grid">
+      <div class="afford-card">
+        <div class="afford-label">Ingreso neto ${modality==='pareja'?'pareja':'individual'}</div>
+        <div class="afford-value" style="color:var(--crema)">S/${fmt(salNet)}</div>
+        <div class="afford-sub">${modality==='pareja'?'doble ingreso':'individual'}</div>
+      </div>
+      <div class="afford-card">
+        <div class="afford-label">Enganche (${Math.round((1-persona.finPct)*100)}%)</div>
+        <div class="afford-value" style="color:var(--warning)">$${fmt(enganche)}</div>
+        <div class="afford-sub">S/${fmt(Math.round(enganche*TC))}</div>
+      </div>
+      <div class="afford-card">
+        <div class="afford-label">Cuota mensual</div>
+        <div class="afford-value" style="color:var(--lavanda)">${bank.currency==='USD'?'$':'S/'}${fmt(cuotaDisplay)}</div>
+        <div class="afford-sub">S/${fmt(cuotaPEN)} equiv.</div>
+      </div>
+      <div class="afford-card" style="border-color:${col}22">
+        <div class="afford-label">% ingreso en cuota</div>
+        <div class="afford-value" style="color:${col}">${pct}%</div>
+        <div class="afford-sub">máx recomendado ${Math.round(persona.cuotaMax*100)}%</div>
+      </div>
+      <div class="afford-card">
+        <div class="afford-label">Banco</div>
+        <div class="afford-value" style="color:var(--crema);font-size:14px">${bank.bank}</div>
+        <div class="afford-sub">${bank.rate}% ${bank.currency} ${bank.plazo} años</div>
+      </div>
+      <div class="afford-card" style="border-color:${ok?T.success:T.danger}22">
+        <div class="afford-label">Veredicto</div>
+        <div class="afford-value" style="color:${ok?T.success:T.danger}">${ok?'✓ VIABLE':'✗ DIFÍCIL'}</div>
+        <div class="afford-sub">${ok?'dentro del rango bancario':'sobrepasa capacidad'}</div>
+      </div>
+    </div>
+    <div style="background:var(--charcoal);border-radius:8px;padding:12px 14px;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:11px;font-family:'Space Mono',monospace">
+        <span style="color:var(--light)">Capacidad de pago</span>
+        <span style="color:${col}">${pct}% usado</span>
+      </div>
+      <div class="capacity-bar">
+        <div class="capacity-fill" style="width:${Math.min(pct,100)}%;background:${col}"></div>
+        <div class="capacity-line" style="left:${Math.round(persona.cuotaMax*100)}%"></div>
+      </div>
+      <div style="font-size:9px;color:var(--light);font-family:'Space Mono',monospace">línea blanca = límite ${Math.round(persona.cuotaMax*100)}% del ingreso</div>
+    </div>
+    <div style="background:var(--dark);border:1px solid rgba(85,85,85,.2);border-radius:8px;padding:12px 14px;margin-top:12px">
+      <div style="font-size:9px;color:var(--light);font-family:'Space Mono',monospace;letter-spacing:1.5px;margin-bottom:6px">INSIGHT COMERCIAL</div>
+      <div style="font-size:12px;color:var(--crema);line-height:1.7">
+        ${ok
+          ? `Un ${persona.label.toLowerCase()} ${modality==='pareja'?'en pareja':'solo'} en ${p.district} puede absorber este proyecto. La cuota representa el ${pct}% de su ingreso — dentro del umbral bancario. ${p.segment==='A'?'Palanca comercial: exclusividad y diseño sobre precio.':'Palanca: relación precio/área y financiamiento directo.'}`
+          : `El perfil está al límite (${pct}% del ingreso). ${modality==='solo'?'En pareja la situación mejora significativamente.':'Considera un plazo mayor o enganche más alto para reducir la cuota.'}`
+        }
+      </div>
+    </div>`;
+}
+
+function renderCompsTab(comps, p) {
+  if(!comps.length) return '<div style="color:var(--light);font-size:12px;padding:20px">No hay comparables en el mismo distrito y segmento con datos disponibles.</div>';
+  return comps.map(s=>`
+    <div style="background:var(--charcoal);border-radius:8px;padding:12px 14px;border:1px solid rgba(85,85,85,.2);
+      display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px">
+      <div>
+        <div style="font-size:12px;font-weight:700">${s.name}</div>
+        <div style="font-size:10px;color:var(--light)">${s.developer}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="mono" style="font-size:9px;color:var(--light)">LISTA</div>
+        <div class="mono" style="font-size:13px;font-weight:700;color:var(--lavanda)">${fmtUSD(s.list_price_m2_usd)}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="mono" style="font-size:9px;color:var(--light)">CIERRE</div>
+        <div class="mono" style="font-size:13px;font-weight:700;color:var(--success)">${fmtUSD(s.close_price_m2_usd)}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="mono" style="font-size:9px;color:var(--light)">GAP</div>
+        <div class="mono" style="font-size:13px;font-weight:700;color:var(--naranja)">-${s.discount_pct||0}%</div>
+      </div>
+      <div style="text-align:right">
+        <div class="mono" style="font-size:9px;color:var(--light)">ÁREA</div>
+        <div class="mono" style="font-size:12px;color:var(--light)">${s.min_area_m2||'?'}-${s.max_area_m2||'?'}m²</div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── PODER ADQUISITIVO TAB ───────────────────────────────────
+function renderPoder(c) {
+  const districts = Object.keys(SALARY).sort();
+  c.innerHTML = `
+    <div class="data-table" style="margin-bottom:16px">
+      <table>
+        <thead><tr><th>Distrito</th><th>Junior</th><th>Mid</th><th>Senior</th><th>Exec</th><th>Pareja Senior</th></tr></thead>
+        <tbody>${districts.map(d=>{const s=SALARY[d];return `<tr>
+          <td style="font-weight:600">${d}</td>
+          <td class="mono" style="color:var(--light)">S/${fmt(s.junior)}</td>
+          <td class="mono">S/${fmt(s.mid)}</td>
+          <td class="mono" style="color:var(--lavanda)">S/${fmt(s.senior)}</td>
+          <td class="mono" style="color:var(--naranja);font-weight:700">S/${fmt(s.exec)}</td>
+          <td class="mono" style="color:var(--success)">S/${fmt(Math.round(s.senior*s.pm))}</td>
+        </tr>`;}).join('')}</tbody>
+      </table>
+    </div>
+    <div style="background:var(--charcoal);border-radius:8px;border:1px solid rgba(85,85,85,.2);padding:16px;margin-bottom:16px">
+      <div class="mono" style="font-size:10px;color:var(--light);letter-spacing:1.5px;margin-bottom:12px">TASAS HIPOTECARIAS ACTUALES — Jun 2026</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+        ${BANKS.map(b=>`<div style="background:var(--dark);border-radius:7px;padding:12px 14px;border:1px solid rgba(85,85,85,.2)">
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">${b.bank}</div>
+          <div class="mono" style="font-size:20px;font-weight:800;color:var(--lavanda)">${b.rate}%</div>
+          <div style="font-size:10px;color:var(--light)">${b.currency} · ${b.plazo} años</div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div style="background:rgba(149,171,232,.08);border:1px solid rgba(149,171,232,.2);border-radius:8px;padding:16px">
+      <div class="mono" style="font-size:10px;color:var(--lavanda);letter-spacing:1.5px;margin-bottom:10px">SIMULADOR — Haz clic en cualquier proyecto para análisis completo de capacidad de pago</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${FILTERED.slice(0,8).map(p=>`<button onclick="openProject(${JSON.stringify(JSON.stringify(p)).slice(1,-1)})" 
+          style="background:${p.isOwn?'rgba(168,85,247,.2)':'var(--charcoal)'};border:1px solid ${p.isOwn?'rgba(168,85,247,.4)':'rgba(85,85,85,.4)'};
+          border-radius:6px;padding:8px 12px;color:${p.isOwn?T.purple:T.crema};font-size:11px;cursor:pointer;text-align:left;font-family:'Space Mono',monospace">
+          <div style="font-weight:700">${p.isOwn?'★ ':''}${p.name}</div>
+          <div style="font-size:9px;color:var(--light);margin-top:2px">${p.district} · ${fmtUSD(p.close_price_m2_usd)}/m² cierre</div>
+        </button>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ─── DÉFICIT TAB ─────────────────────────────────────────────
+function renderDeficit(c) {
+  const kpis = document.createElement('div');
+  kpis.className = 'kpi-grid';
+  [
+    {label:'Déficit Total Lima',value:'612,000',sub:'unidades',trend:-1,color:T.danger},
+    {label:'Oferta formal/año',value:'~35,000',sub:'nuevas unidades',trend:1,color:T.success},
+    {label:'Años para cerrar',value:'17.5',sub:'a ritmo actual',trend:0,color:T.warning},
+    {label:'VIS del mercado',value:'~42%',sub:'vivienda interés social',trend:1,color:T.lavanda},
+  ].forEach(k=>kpis.appendChild(kpiCard(k)));
+  c.appendChild(kpis);
+
+  const zones = [
+    {zone:'Lima Norte',deficit:180000,color:T.danger},
+    {zone:'Lima Este',deficit:160000,color:T.naranja},
+    {zone:'Lima Sur',deficit:120000,color:T.warning},
+    {zone:'Lima Moderna',deficit:85000,color:T.lavanda},
+    {zone:'Callao',deficit:67000,color:T.success},
+  ];
+  const barDiv = document.createElement('div');
+  barDiv.style.cssText = 'background:var(--charcoal);border-radius:8px;border:1px solid rgba(85,85,85,.2);padding:16px;margin-bottom:16px';
+  barDiv.innerHTML = `<div class="mono" style="font-size:10px;color:var(--light);letter-spacing:1.5px;margin-bottom:14px">DÉFICIT POR ZONA</div>
+    ${zones.map(z=>`<div class="zone-bar-row">
+      <div class="zone-bar-label">${z.zone}</div>
+      <div class="zone-bar-track"><div class="zone-bar-fill" style="width:${(z.deficit/180000*100).toFixed(0)}%;background:${z.color}"></div></div>
+      <div class="zone-bar-val" style="color:${z.color}">${(z.deficit/1000).toFixed(0)}K</div>
+    </div>`).join('')}`;
+  c.appendChild(barDiv);
+
+  const pred = document.createElement('div');
+  pred.style.cssText = 'background:var(--charcoal);border-radius:8px;border:1px solid rgba(85,85,85,.2);padding:16px';
+  pred.innerHTML = `<div class="mono" style="font-size:10px;color:var(--light);letter-spacing:1.5px;margin-bottom:14px">PREDICCIÓN 12 MESES</div>
+    ${[
+      {label:'Precio m² Lima Moderna',value:'+2.5–4%',color:T.lavanda},
+      {label:'Absorción mercado',value:'4.5%→5.2%',color:T.success},
+      {label:'Stock disponible',value:'−15%',color:T.naranja},
+      {label:'Gap lista→cierre Seg A',value:'-3 a -6%',color:T.warning},
+      {label:'Tasa hipotecaria',value:'7.8–8.0%',color:T.lavanda},
+    ].map(r=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(85,85,85,.1)">
+      <div style="font-size:12px">${r.label}</div>
+      <div class="mono" style="font-size:13px;font-weight:700;color:${r.color}">${r.value}</div>
+    </div>`).join('')}
+    <button onclick="openAgent('predictor','')" style="margin-top:12px;width:100%;background:rgba(247,196,59,.15);
+      border:1px solid rgba(247,196,59,.3);border-radius:6px;padding:8px;color:var(--warning);
+      font-size:10px;cursor:pointer;font-family:'Space Mono',monospace">◆ PREDICTOR IA DETALLADO →</button>`;
+  c.appendChild(pred);
+}
+
+// ─── AGENT CHAT ──────────────────────────────────────────────
+function setupAgentBar() {
+  const bar = document.getElementById('agent-bar');
+  Object.entries(AGENTS).forEach(([id,a]) => {
+    const btn = document.createElement('button');
+    btn.className = 'agent-btn';
+    btn.style.cssText = `background:${a.color}11;border-color:${a.color}44;color:${a.color}`;
+    btn.innerHTML = `${a.icon} ${a.label.split(' ')[0]}`;
+    btn.onclick = () => openAgent(id, '');
+    bar.appendChild(btn);
+  });
+}
+
+function openAgent(agentId, context='') {
+  ACTIVE_AGENT = agentId;
+  AGENT_HISTORY = [];
+  const a = AGENTS[agentId];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'agent-modal';
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+
+  overlay.innerHTML = `
+  <div class="agent-box" style="border:1px solid ${a.color}44;box-shadow:0 0 60px ${a.color}22">
+    <div class="agent-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px;color:${a.color}">${a.icon}</span>
+        <div>
+          <div style="font-size:10px;color:var(--light);font-family:'Space Mono',monospace;letter-spacing:2px">AGENTE</div>
+          <div style="font-size:14px;font-weight:700;color:${a.color};font-family:'Space Mono',monospace">${a.label}</div>
+        </div>
+      </div>
+      <button class="close-btn" onclick="this.closest('.agent-modal').remove()">✕</button>
+    </div>
+    <div class="agent-messages" id="agent-msgs">
+      ${context?`<div style="background:${a.color}11;border:1px solid ${a.color}33;border-radius:6px;padding:8px 12px;font-size:11px;color:var(--light);font-family:'Space Mono',monospace">Contexto: ${context.slice(0,100)}</div>`:''}
+      ${a.suggestions.map(s=>`<button class="suggestion-btn" style="border-color:${a.color}33;color:var(--crema)" onclick="sendAgentMsg('${s.replace(/'/g,"\\'")}','${agentId}','${context.replace(/'/g,"\\'")}',this.closest('.agent-modal'))">${s}</button>`).join('')}
+    </div>
+    <div class="agent-input-row">
+      <input class="agent-input" id="agent-inp" placeholder="Pregunta al agente..." onkeydown="if(event.key==='Enter')sendAgentMsg(this.value,'${agentId}','${context.replace(/'/g,"\\'")}',this.closest('.agent-modal'))">
+      <button class="agent-send" style="background:${a.color};color:var(--dark)" 
+        onclick="sendAgentMsg(document.getElementById('agent-inp').value,'${agentId}','${context.replace(/'/g,"\\'")}',this.closest('.agent-modal'))">→</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+async function sendAgentMsg(text, agentId, context, overlay) {
+  if(!text.trim()) return;
+  const a = AGENTS[agentId];
+  const msgs = overlay.querySelector('.agent-messages');
+  const inp = overlay.querySelector('.agent-input');
+  const btn = overlay.querySelector('.agent-send');
+
+  // Clear suggestions
+  overlay.querySelectorAll('.suggestion-btn').forEach(b=>b.remove());
+  inp.value = '';
+  btn.disabled = true;
+
+  // User message
+  const userDiv = document.createElement('div');
+  userDiv.className = 'msg user';
+  userDiv.style.cssText = `background:${a.color}22;border:1px solid ${a.color}44;color:var(--crema)`;
+  userDiv.textContent = text;
+  msgs.appendChild(userDiv);
+
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.style.cssText = 'display:flex;gap:4px;padding:10px 14px;align-self:flex-start';
+  typing.innerHTML = [0,1,2].map(i=>`<div class="typing-dot" style="background:${a.color};animation-delay:${i*0.2}s"></div>`).join('');
+  msgs.appendChild(typing);
+  msgs.scrollTop = 9999;
+
+  AGENT_HISTORY.push({role:'user',content:text});
+  const sysWithCtx = context ? `${a.sys}\n\nContexto del proyecto: ${context}` : a.sys;
+
+  try {
+    const payload = JSON.stringify({
+      model:'claude-sonnet-4-5',
+      max_tokens:1000,
+      system:sysWithCtx,
+      messages:AGENT_HISTORY.map(m=>({role:m.role,content:m.content})),
+    });
+    const res = await fetch('/.netlify/functions/claude', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:payload,
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Error al procesar.';
+    AGENT_HISTORY.push({role:'assistant',content:reply});
+    typing.remove();
+    const aDiv = document.createElement('div');
+    aDiv.className = 'msg assistant';
+    aDiv.style.cssText = `border:1px solid rgba(85,85,85,.3);color:var(--crema)`;
+    aDiv.innerHTML = reply
+      .replace(/^### (.*)/gm, '<div style="font-size:13px;font-weight:700;color:var(--lavanda);margin:10px 0 4px">$1</div>')
+      .replace(/^## (.*)/gm, '<div style="font-size:14px;font-weight:700;color:var(--naranja);margin:12px 0 6px;font-family:Space Mono,monospace">$1</div>')
+      .replace(/^# (.*)/gm, '<div style="font-size:16px;font-weight:700;color:var(--crema);margin:14px 0 6px;font-family:Space Mono,monospace">$1</div>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--crema)">$1</strong>')
+      .replace(/^- (.*)/gm, '<div style="padding-left:12px;margin:2px 0">· $1</div>')
+      .replace(/\n/g, '<br>');
+    msgs.appendChild(aDiv);
+  } catch {
+    typing.remove();
+    const eDiv = document.createElement('div');
+    eDiv.className = 'msg assistant';
+    eDiv.style.color = T.danger;
+    eDiv.textContent = 'Error de conexión.';
+    msgs.appendChild(eDiv);
+  }
+  btn.disabled = false;
+  msgs.scrollTop = 9999;
+  inp.focus();
+}
+
+// ─── ADD PROJECT MODAL ───────────────────────────────────────
+function openAddModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'add-modal';
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+
+  const dists = Object.keys(SALARY);
+  overlay.innerHTML = `
+  <div class="add-box">
+    <div class="modal-header">
+      <div style="font-size:14px;font-weight:700;color:var(--purple);font-family:'Space Mono',monospace">★ AGREGAR MI PROYECTO</div>
+      <button class="close-btn" onclick="this.closest('.add-modal').remove()">✕</button>
+    </div>
+    <div id="ap-market-ctx" style="display:none;background:rgba(149,171,232,.08);
+      border:1px solid rgba(149,171,232,.2);border-radius:6px;padding:10px 14px;margin:0 20px 0"></div>
+    <div class="add-grid">
+      <div><div class="field-label">Nombre del proyecto</div><input class="field-input" id="ap-name" placeholder="DC01 — Del Castillo"></div>
+      <div><div class="field-label">Desarrolladora</div><input class="field-input" id="ap-dev" value="Hygge Inmobiliaria"></div>
+      <div><div class="field-label">Distrito</div>
+        <select class="field-input" id="ap-dist" onchange="suggestProjectValues()">${dists.map(d=>`<option>${d}</option>`).join('')}</select></div>
+      <div><div class="field-label">Segmento</div>
+        <select class="field-input" id="ap-seg" onchange="suggestProjectValues()"><option>A</option><option>B</option><option>C</option></select></div>
+      <div><div class="field-label">Precio lista USD/m²</div><input class="field-input" id="ap-list" type="number" placeholder="3200"></div>
+      <div><div class="field-label">Precio cierre USD/m²</div><input class="field-input" id="ap-close" type="number" placeholder="2950 (opcional)"></div>
+      <div><div class="field-label">Área mín m²</div><input class="field-input" id="ap-amin" type="number" placeholder="120"></div>
+      <div><div class="field-label">Área máx m²</div><input class="field-input" id="ap-amax" type="number" placeholder="180"></div>
+      <div><div class="field-label">Etapa</div>
+        <select class="field-input" id="ap-stage">
+          <option>Pre-venta</option><option>En construcción</option><option>Entrega inmediata</option><option>Permisos</option>
+        </select></div>
+      <div><div class="field-label">Entrega estimada</div><input class="field-input" id="ap-delivery" placeholder="Dic 2026"></div>
+      <div><div class="field-label">Latitud (opcional)</div><input class="field-input" id="ap-lat" placeholder="-12.0931"></div>
+      <div><div class="field-label">Longitud (opcional)</div><input class="field-input" id="ap-lng" placeholder="-77.0465"></div>
+    </div>
+    <div class="add-footer">
+      <button class="btn-cancel" onclick="this.closest('.add-modal').remove()">CANCELAR</button>
+      <button class="btn-add" onclick="addProject(this.closest('.add-modal'))">★ AGREGAR</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+  // Trigger suggestions after modal is in DOM
+  setTimeout(() => suggestProjectValues(), 100);
+}
+
+function suggestProjectValues() {
+  const dist = document.getElementById('ap-dist').value;
+  const seg  = document.getElementById('ap-seg').value;
+  
+  // Get market averages for this district + segment
+  const comps = ALL_PROJECTS.filter(p => p.district === dist && p.segment === seg);
+  if (!comps.length) return;
+  
+  const avgList  = Math.round(comps.reduce((s,p)=>s+(p.list_price_m2_usd||0),0)/comps.length);
+  const avgClose = Math.round(comps.reduce((s,p)=>s+(p.close_price_m2_usd||0),0)/comps.length);
+  const avgAmin  = Math.round(comps.reduce((s,p)=>s+(p.min_area_m2||0),0)/comps.length);
+  const avgAmax  = Math.round(comps.reduce((s,p)=>s+(p.max_area_m2||0),0)/comps.length);
+
+  // Only suggest if field is empty
+  const listField  = document.getElementById('ap-list');
+  const closeField = document.getElementById('ap-close');
+  const aminField  = document.getElementById('ap-amin');
+  const amaxField  = document.getElementById('ap-amax');
+  
+  listField.value  = avgList;  listField.style.borderColor = '#95ABE8';
+  closeField.value = avgClose; closeField.style.borderColor = '#4CAF88';
+  aminField.value  = avgAmin;  aminField.style.borderColor = '#95ABE844';
+  amaxField.value  = avgAmax;  amaxField.style.borderColor = '#95ABE844';
+
+  // Show market context
+  const ctx = document.getElementById('ap-market-ctx');
+  if (ctx) {
+    ctx.innerHTML = `
+      <div style="font-size:9px;color:#888;font-family:'Space Mono',monospace;letter-spacing:1px;margin-bottom:4px">
+        MERCADO ${dist.toUpperCase()} SEG ${seg} — ${comps.length} proyectos activos
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <span style="font-size:10px;color:#95ABE8">Lista: <strong>$${avgList.toLocaleString()}/m²</strong></span>
+        <span style="font-size:10px;color:#4CAF88">Cierre: <strong>$${avgClose.toLocaleString()}/m²</strong></span>
+        <span style="font-size:10px;color:#888">Área: <strong>${avgAmin}–${avgAmax}m²</strong></span>
+      </div>`;
+    ctx.style.display = 'block';
+  }
+}
+
+function addProject(overlay) {
+  try {
+  const g = id => document.getElementById(id).value;
+  const dist = g('ap-dist');
+  const listM2 = +g('ap-list');
+  const closeM2 = +g('ap-close') || Math.round(listM2*0.94);
+  const amin = +g('ap-amin') || 120;
+  const amax = +g('ap-amax') || amin;
+  if(!g('ap-name')||!listM2) return;
+
+  const DIST_COORDS = {
+    'San Isidro':[-12.0931,-77.0465],'Miraflores':[-12.1181,-77.0336],
+    'Barranco':[-12.1478,-77.0228],'Surco':[-12.15,-76.99],
+    'San Borja':[-12.1056,-77.0031],'La Molina':[-12.0856,-76.9424],
+    'Jesús María':[-12.0731,-77.0531],'Magdalena':[-12.0894,-77.0681],
+    'Lince':[-12.0831,-77.0361],'Pueblo Libre':[-12.0731,-77.0731],
+    'San Miguel':[-12.0769,-77.0928],
+  };
+  const [lat,lng] = g('ap-lat')&&g('ap-lng') ? [+g('ap-lat'),+g('ap-lng')] : (DIST_COORDS[dist]||[-12.08,-77.03]);
+
+  const proj = {
+    id:`own_${Date.now()}`,nexo_id:null,source:'own',isOwn:true,
+    name:g('ap-name'),developer:g('ap-dev')||'Hygge Inmobiliaria',
+    district:dist,zone:'Lima Moderna',segment:g('ap-seg'),
+    stage:g('ap-stage'),delivery:g('ap-delivery'),
+    min_area_m2:amin,max_area_m2:amax,
+    list_price_m2_usd:listM2,close_price_m2_usd:closeM2,
+    discount_pct:Math.round((listM2-closeM2)/listM2*100),
+    list_ticket_usd:Math.round(listM2*amin),
+    close_ticket_usd:Math.round(closeM2*amin),
+    list_price_usd:Math.round(listM2*amin),
+    price_history:[],lat,lng,
+    scraped_at:new Date().toISOString(),scraped_date:new Date().toISOString().split('T')[0],
+  };
+
+  OWN_PROJECTS.push(proj);
+  localStorage.setItem('hygge_own_projects', JSON.stringify(OWN_PROJECTS));
+  overlay.remove();
+  applyFilters();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+
+
+async function exportProjectPDF(p) {
+  const comps = [...ALL_PROJECTS, ...OWN_PROJECTS].filter(m => 
+    m.id !== p.id && m.district === p.district && m.segment === p.segment
+  );
+  const mktL = comps.length ? Math.round(comps.reduce((s,c)=>s+(c.list_price_m2_usd||0),0)/comps.length) : 0;
+  const mktC = comps.length ? Math.round(comps.reduce((s,c)=>s+(c.close_price_m2_usd||0),0)/comps.length) : 0;
+  const today = new Date().toLocaleDateString('es-PE', {day:'2-digit',month:'long',year:'numeric'});
+  const diff = p.list_price_m2_usd - mktL;
+  const diffColor = diff > 0 ? '#F7643B' : '#4CAF88';
+  const diffSign = diff > 0 ? '+' : '';
+
+  // Show loading indicator on button
+  const pdfBtn = document.querySelector('[onclick*="exportProjectPDF"]');
+  if (pdfBtn) { pdfBtn.textContent = '⟳ Generando...'; pdfBtn.disabled = true; }
+
+  // Generate AI analysis
+  let aiAnalysis = 'Análisis no disponible.';
+  try {
+    const prompt = `Eres el analista de Hygge Inmobiliaria. Genera un análisis ejecutivo conciso (máximo 250 palabras) del siguiente proyecto inmobiliario:
+
+PROYECTO: ${p.name}
+Desarrolladora: ${p.developer}
+Distrito: ${p.district} | Zona: ${p.zone} | Segmento: ${p.segment}
+Etapa: ${p.stage || 'N/D'} | Entrega: ${p.delivery || 'N/D'}
+Área: ${p.min_area_m2 || '?'}–${p.max_area_m2 || '?'} m²
+Dormitorios: ${p.dorms_min ? p.dorms_min+'-'+p.dorms_max+'D' : 'N/D'}
+Precio lista: $${(p.list_price_m2_usd||0).toLocaleString()}/m²
+Precio cierre est.: $${(p.close_price_m2_usd||0).toLocaleString()}/m² (-${p.discount_pct||0}%)
+Ticket mínimo: $${p.list_ticket_usd ? (p.list_ticket_usd/1000).toFixed(0)+'K' : 'N/D'} USD
+vs Mercado ${p.district} Seg ${p.segment}: ${diff>0?'+':''}$${Math.abs(diff).toLocaleString()}/m² (mkt avg $${mktL.toLocaleString()}/m²)
+Comparables activos: ${comps.length} proyectos
+${p.price_history && p.price_history.length > 0 ? 'Historial de precios: ' + p.price_history.slice(0,3).map(h=>h.fecha+' '+h.estado+' $'+h.precio_usd).join(' | ') : ''}
+
+Estructura tu respuesta en:
+1. POSICIONAMIENTO — cómo está el proyecto vs mercado
+2. OPORTUNIDAD — qué representa para el comprador objetivo  
+3. RIESGOS — factores a monitorear
+4. CONCLUSIÓN — recomendación ejecutiva en 2-3 líneas
+
+Responde en español, tono ejecutivo, sin bullets, en párrafos corridos.`;
+
+    const res = await fetch('/.netlify/functions/claude', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 600,
+        messages: [{role: 'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    aiAnalysis = data.content?.[0]?.text || 'Análisis no disponible.';
+  } catch(e) { aiAnalysis = 'Error al generar análisis IA.'; }
+
+  if (pdfBtn) { pdfBtn.textContent = '↓ PDF'; pdfBtn.disabled = false; }
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1A1A1A; color:#E3E1DE; font-family:'Space Mono',monospace; 
+         width:210mm; min-height:297mm; padding:20mm; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; 
+             border-bottom:1px solid #373737; padding-bottom:16px; margin-bottom:24px; }
+  .logo { font-size:11px; letter-spacing:3px; color:#888; }
+  .logo span { color:#95ABE8; }
+  .date { font-size:10px; color:#888; }
+  .title { font-size:36px; font-weight:700; letter-spacing:2px; color:#E3E1DE; margin-bottom:4px; }
+  .subtitle { font-size:11px; color:#888; letter-spacing:2px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:24px 0; }
+  .kpi { background:#252525; border:1px solid #373737; border-radius:6px; padding:16px; }
+  .kpi-label { font-size:8px; color:#888; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .kpi-value { font-size:24px; font-weight:700; }
+  .kpi-sub { font-size:9px; color:#888; margin-top:4px; }
+  .section { margin:20px 0; }
+  .section-title { font-size:9px; color:#888; letter-spacing:3px; text-transform:uppercase; 
+                   border-bottom:1px solid #373737; padding-bottom:8px; margin-bottom:14px; }
+  .compare-row { display:flex; justify-content:space-between; align-items:center; 
+                  padding:10px 0; border-bottom:1px solid #252525; }
+  .compare-label { font-size:11px; color:#E3E1DE; }
+  .compare-vals { display:flex; gap:20px; }
+  .val-box { text-align:right; }
+  .val-label { font-size:8px; color:#888; letter-spacing:1px; }
+  .val-num { font-size:14px; font-weight:700; }
+  .bar-track { height:4px; background:#252525; border-radius:2px; margin-top:4px; }
+  .bar-fill { height:100%; border-radius:2px; }
+  .footer { position:fixed; bottom:20mm; left:20mm; right:20mm; 
+             border-top:1px solid #373737; padding-top:12px;
+             display:flex; justify-content:space-between; font-size:8px; color:#888; }
+  .tag { display:inline-block; background:#373737; padding:2px 8px; border-radius:2px; 
+         font-size:8px; letter-spacing:1px; margin-right:6px; }
+  .insight { background:#252525; border-left:3px solid #95ABE8; padding:14px 16px; 
+              border-radius:0 6px 6px 0; margin-top:16px; }
+  .insight-label { font-size:8px; color:#95ABE8; letter-spacing:2px; margin-bottom:6px; }
+  .insight-text { font-size:11px; color:#E3E1DE; line-height:1.7; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">HYGGE<span>·</span>INTEL</div>
+      <div style="font-size:9px;color:#888;margin-top:4px;letter-spacing:1px">REPORTE EJECUTIVO DE PROYECTO</div>
+    </div>
+    <div class="date">${today}</div>
+  </div>
+
+  <div class="title">${p.isOwn ? '★ ' : ''}${p.name}</div>
+  <div class="subtitle" style="margin-bottom:8px">${p.developer} · ${p.district} · ${p.zone}</div>
+  <div>
+    <span class="tag">SEG ${p.segment}</span>
+    <span class="tag" style="color:#${p.stage && p.stage.includes('plano') ? 'F7C43B' : p.stage && p.stage.includes('construcci') ? '95ABE8' : '4CAF88'}">${p.stage || 'N/D'}</span>
+    ${p.delivery ? `<span class="tag">ENTREGA ${p.delivery}</span>` : ''}
+    <span class="tag">${p.min_area_m2 || '?'}–${p.max_area_m2 || '?'} M²</span>
+    ${p.dorms_min ? `<span class="tag">${p.dorms_min}–${p.dorms_max}D</span>` : ''}
+  </div>
+
+  <div class="grid">
+    <div class="kpi" style="border-color:#95ABE844">
+      <div class="kpi-label">Precio Lista /m²</div>
+      <div class="kpi-value" style="color:#95ABE8">$${(p.list_price_m2_usd||0).toLocaleString()}</div>
+      <div class="kpi-sub">USD · Nexo Inmobiliario</div>
+    </div>
+    <div class="kpi" style="border-color:#4CAF8844">
+      <div class="kpi-label">Precio Cierre est. /m²</div>
+      <div class="kpi-value" style="color:#4CAF88">$${(p.close_price_m2_usd||0).toLocaleString()}</div>
+      <div class="kpi-sub">-${p.discount_pct||0}% vs lista</div>
+    </div>
+    <div class="kpi" style="border-color:${diffColor}44">
+      <div class="kpi-label">vs Mercado</div>
+      <div class="kpi-value" style="color:${diffColor}">${diffSign}$${Math.abs(diff).toLocaleString()}</div>
+      <div class="kpi-sub">${diff > 0 ? 'por encima' : 'por debajo'} del promedio</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Ticket mínimo</div>
+      <div class="kpi-value" style="color:#E3E1DE">$${p.list_ticket_usd ? (p.list_ticket_usd/1000).toFixed(0)+'K' : '—'}</div>
+      <div class="kpi-sub">USD · precio lista</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Comparables</div>
+      <div class="kpi-value" style="color:#E3E1DE">${comps.length}</div>
+      <div class="kpi-sub">proyectos misma zona/seg</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Historial precios</div>
+      <div class="kpi-value" style="color:#E3E1DE">${(p.price_history||[]).length}</div>
+      <div class="kpi-sub">registros Nexo</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Comparativo vs Mercado — ${p.district} · Seg ${p.segment}</div>
+    ${[
+      {label:'Precio lista /m²', own: '$'+(p.list_price_m2_usd||0).toLocaleString(), mkt: '$'+mktL.toLocaleString(), color:'#95ABE8', pct: mktL ? Math.round(p.list_price_m2_usd/mktL*100) : 100},
+      {label:'Precio cierre est. /m²', own: '$'+(p.close_price_m2_usd||0).toLocaleString(), mkt: '$'+mktC.toLocaleString(), color:'#4CAF88', pct: mktC ? Math.round((p.close_price_m2_usd||0)/mktC*100) : 100},
+      {label:'Área mínima', own: (p.min_area_m2||'?')+'m²', mkt: '—', color:'#E3E1DE', pct:100},
+      {label:'Descuento estimado', own: '-'+(p.discount_pct||0)+'%', mkt: '-6%', color:'#F7643B', pct:100},
+    ].map(r => `
+      <div class="compare-row">
+        <div class="compare-label">${r.label}</div>
+        <div class="compare-vals">
+          <div class="val-box">
+            <div class="val-label">ESTE PROYECTO</div>
+            <div class="val-num" style="color:${r.color}">${r.own}</div>
+          </div>
+          <div class="val-box">
+            <div class="val-label">MERCADO PROM.</div>
+            <div class="val-num" style="color:#888">${r.mkt}</div>
+          </div>
+        </div>
+      </div>`).join('')}
+  </div>
+
+  ${(p.price_history||[]).length > 0 ? `
+  <div class="section">
+    <div class="section-title">Historial de precios — Nexo Inmobiliario</div>
+    ${p.price_history.slice(0,4).map(h => `
+      <div class="compare-row">
+        <div style="display:flex;gap:16px;align-items:center">
+          <div style="font-size:10px;color:#888;width:90px">${h.fecha}</div>
+          <div style="font-size:10px;color:#888">${h.estado}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#95ABE8">
+          ${h.currency==='USD' ? '$'+h.precio.toLocaleString() : 'S/'+h.precio.toLocaleString()}
+          <span style="font-size:10px;color:#888;font-weight:400"> · $${(h.precio_usd||0).toLocaleString()} USD</span>
+        </div>
+      </div>`).join('')}
+  </div>` : ''}
+
+  <!-- PAGE BREAK -->
+  <div style="page-break-before:always;padding-top:20mm">
+    <div class="header" style="margin-bottom:20px">
+      <div>
+        <div class="logo">HYGGE<span>·</span>INTEL</div>
+        <div style="font-size:9px;color:#888;margin-top:4px;letter-spacing:1px">ANÁLISIS EJECUTIVO IA · ${p.name}</div>
+      </div>
+      <div class="date">${today}</div>
+    </div>
+
+    <!-- COMPARABLES TABLE -->
+    <div class="section">
+      <div class="section-title">Comparables activos — ${p.district} · Seg ${p.segment} (${comps.length} proyectos)</div>
+      ${comps.slice(0,6).map(c => `
+      <div class="compare-row">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#E3E1DE">${c.name}</div>
+          <div style="font-size:9px;color:#888">${c.developer} · ${c.stage||'N/D'}</div>
+        </div>
+        <div class="compare-vals">
+          <div class="val-box">
+            <div class="val-label">LISTA</div>
+            <div class="val-num" style="color:#95ABE8">$${(c.list_price_m2_usd||0).toLocaleString()}/m²</div>
+          </div>
+          <div class="val-box">
+            <div class="val-label">CIERRE</div>
+            <div class="val-num" style="color:#4CAF88">$${(c.close_price_m2_usd||0).toLocaleString()}/m²</div>
+          </div>
+          <div class="val-box">
+            <div class="val-label">ÁREA</div>
+            <div class="val-num" style="color:#888">${c.min_area_m2||'?'}–${c.max_area_m2||'?'}m²</div>
+          </div>
+        </div>
+      </div>`).join('') || '<div style="color:#888;font-size:11px">Sin comparables en esta zona/segmento</div>'}
+    </div>
+
+    <!-- AI ANALYSIS -->
+    <div class="insight" style="margin-top:24px">
+      <div class="insight-label">◈ ANÁLISIS GENERADO POR CLAUDE AI · HYGGE DATA ANALYST</div>
+      <div class="insight-text" style="white-space:pre-line;line-height:1.8">\${aiAnalysis}</div>
+    </div>
+
+    <div style="margin-top:20px;padding:12px 16px;background:#252525;border-radius:6px;border:1px solid #373737">
+      <div style="font-size:8px;color:#888;letter-spacing:2px;margin-bottom:6px">MACRO REFERENCIAL · JUN 2026</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <span style="font-size:10px;color:#E3E1DE">USD/PEN <strong style="color:#E85555">3.78</strong></span>
+        <span style="font-size:10px;color:#E3E1DE">Tasa hip. <strong style="color:#95ABE8">8.2%</strong></span>
+        <span style="font-size:10px;color:#E3E1DE">Inflación <strong style="color:#E3E1DE">2.1%</strong></span>
+        <span style="font-size:10px;color:#E3E1DE">PBI Const. <strong style="color:#4CAF88">+4.8%</strong></span>
+        <span style="font-size:10px;color:#E3E1DE">Déficit <strong style="color:#F7643B">612K u.</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>HYGGE INTEL · hyggeintel.netlify.app · Fuente: Nexo Inmobiliario</div>
+    <div>${today} · Confidencial</div>
+  </div>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 800);
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.analizar-btn');
+  if (!btn) return;
+  const ctx = `${btn.dataset.name} en ${btn.dataset.dist}, seg ${btn.dataset.seg}, lista $${btn.dataset.list}/m², cierre est. $${btn.dataset.close}/m²`;
+  openAgent('analyst', ctx);
+});
+loadData();
+</script>
+</body>
+</html>
