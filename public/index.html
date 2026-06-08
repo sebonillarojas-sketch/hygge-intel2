@@ -525,10 +525,10 @@ function renderDashboard(c) {
           <div class="mono" style="font-size:14px;font-weight:700;color:var(--crema)">${fmtUSD(mktL)}</div></div>
         <div><div class="mono" style="font-size:9px;color:var(--light)">VS MKT</div>
           <div class="mono" style="font-size:14px;font-weight:700;color:${diff>0?T.naranja:T.success}">${diff>0?'+':''}${fmtUSD(diff)}</div></div>
-        <button onclick="openAgent('analyst',${JSON.stringify(JSON.stringify(p)).slice(1,-1)})"
+        <button onclick="document.getElementById('f-dist').value='${p.district}';document.getElementById('f-seg').value='${p.segment}';applyFilters();switchTab('mapa');"
           style="background:rgba(149,171,232,.15);border:1px solid rgba(149,171,232,.3);border-radius:5px;
           padding:6px 10px;color:var(--lavanda);font-size:9px;cursor:pointer;font-family:'Space Mono',monospace">
-          ANALIZAR →</button>
+          VER EN MAPA →</button>
       </div>`;
     });
     c.appendChild(ownDiv);
@@ -1224,7 +1224,7 @@ function addProject(overlay) {
 
 
 
-async function exportProjectPDF(p) {
+function exportProjectPDF(p) {
   const comps = [...ALL_PROJECTS, ...OWN_PROJECTS].filter(m => 
     m.id !== p.id && m.district === p.district && m.segment === p.segment
   );
@@ -1234,51 +1234,6 @@ async function exportProjectPDF(p) {
   const diff = p.list_price_m2_usd - mktL;
   const diffColor = diff > 0 ? '#F7643B' : '#4CAF88';
   const diffSign = diff > 0 ? '+' : '';
-
-  // Show loading indicator on button
-  const pdfBtn = document.querySelector('[onclick*="exportProjectPDF"]');
-  if (pdfBtn) { pdfBtn.textContent = '⟳ Generando...'; pdfBtn.disabled = true; }
-
-  // Generate AI analysis
-  let aiAnalysis = 'Análisis no disponible.';
-  try {
-    const prompt = `Eres el analista de Hygge Inmobiliaria. Genera un análisis ejecutivo conciso (máximo 250 palabras) del siguiente proyecto inmobiliario:
-
-PROYECTO: ${p.name}
-Desarrolladora: ${p.developer}
-Distrito: ${p.district} | Zona: ${p.zone} | Segmento: ${p.segment}
-Etapa: ${p.stage || 'N/D'} | Entrega: ${p.delivery || 'N/D'}
-Área: ${p.min_area_m2 || '?'}–${p.max_area_m2 || '?'} m²
-Dormitorios: ${p.dorms_min ? p.dorms_min+'-'+p.dorms_max+'D' : 'N/D'}
-Precio lista: $${(p.list_price_m2_usd||0).toLocaleString()}/m²
-Precio cierre est.: $${(p.close_price_m2_usd||0).toLocaleString()}/m² (-${p.discount_pct||0}%)
-Ticket mínimo: $${p.list_ticket_usd ? (p.list_ticket_usd/1000).toFixed(0)+'K' : 'N/D'} USD
-vs Mercado ${p.district} Seg ${p.segment}: ${diff>0?'+':''}$${Math.abs(diff).toLocaleString()}/m² (mkt avg $${mktL.toLocaleString()}/m²)
-Comparables activos: ${comps.length} proyectos
-${p.price_history && p.price_history.length > 0 ? 'Historial de precios: ' + p.price_history.slice(0,3).map(h=>h.fecha+' '+h.estado+' $'+h.precio_usd).join(' | ') : ''}
-
-Estructura tu respuesta en:
-1. POSICIONAMIENTO — cómo está el proyecto vs mercado
-2. OPORTUNIDAD — qué representa para el comprador objetivo  
-3. RIESGOS — factores a monitorear
-4. CONCLUSIÓN — recomendación ejecutiva en 2-3 líneas
-
-Responde en español, tono ejecutivo, sin bullets, en párrafos corridos.`;
-
-    const res = await fetch('/.netlify/functions/claude', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 600,
-        messages: [{role: 'user', content: prompt}]
-      })
-    });
-    const data = await res.json();
-    aiAnalysis = data.content?.[0]?.text || 'Análisis no disponible.';
-  } catch(e) { aiAnalysis = 'Error al generar análisis IA.'; }
-
-  if (pdfBtn) { pdfBtn.textContent = '↓ PDF'; pdfBtn.disabled = false; }
 
   const html = `<!DOCTYPE html>
 <html>
@@ -1415,56 +1370,28 @@ Responde en español, tono ejecutivo, sin bullets, en párrafos corridos.`;
       </div>`).join('')}
   </div>` : ''}
 
-  <!-- PAGE BREAK -->
-  <div style="page-break-before:always;padding-top:20mm">
+  <div style="page-break-before:always;padding-top:16mm" id="page2-content">
     <div class="header" style="margin-bottom:20px">
-      <div>
-        <div class="logo">HYGGE<span>·</span>INTEL</div>
-        <div style="font-size:9px;color:#888;margin-top:4px;letter-spacing:1px">ANÁLISIS EJECUTIVO IA · ${p.name}</div>
-      </div>
+      <div><div class="logo">HYGGE<span>·</span>INTEL</div>
+      <div style="font-size:9px;color:#888;margin-top:4px;letter-spacing:1px">ANALISIS EJECUTIVO · ${p.name}</div></div>
       <div class="date">${today}</div>
     </div>
-
-    <!-- COMPARABLES TABLE -->
     <div class="section">
-      <div class="section-title">Comparables activos — ${p.district} · Seg ${p.segment} (${comps.length} proyectos)</div>
-      ${comps.slice(0,6).map(c => `
-      <div class="compare-row">
-        <div>
-          <div style="font-size:11px;font-weight:700;color:#E3E1DE">${c.name}</div>
-          <div style="font-size:9px;color:#888">${c.developer} · ${c.stage||'N/D'}</div>
-        </div>
-        <div class="compare-vals">
-          <div class="val-box">
-            <div class="val-label">LISTA</div>
-            <div class="val-num" style="color:#95ABE8">$${(c.list_price_m2_usd||0).toLocaleString()}/m²</div>
-          </div>
-          <div class="val-box">
-            <div class="val-label">CIERRE</div>
-            <div class="val-num" style="color:#4CAF88">$${(c.close_price_m2_usd||0).toLocaleString()}/m²</div>
-          </div>
-          <div class="val-box">
-            <div class="val-label">ÁREA</div>
-            <div class="val-num" style="color:#888">${c.min_area_m2||'?'}–${c.max_area_m2||'?'}m²</div>
-          </div>
-        </div>
-      </div>`).join('') || '<div style="color:#888;font-size:11px">Sin comparables en esta zona/segmento</div>'}
+      <div class="section-title">Comparables — ${p.district} Seg ${p.segment} (${comps.length} proyectos)</div>
+      ${comps.slice(0,6).map(c => '<div class="compare-row"><div><div style="font-size:11px;font-weight:700">' + c.name + '</div><div style="font-size:9px;color:#888">' + (c.developer||'') + ' · ' + (c.stage||'N/D') + '</div></div><div class="compare-vals"><div class="val-box"><div class="val-label">LISTA</div><div class="val-num" style="color:#95ABE8">$' + (c.list_price_m2_usd||0).toLocaleString() + '</div></div><div class="val-box"><div class="val-label">CIERRE</div><div class="val-num" style="color:#4CAF88">$' + (c.close_price_m2_usd||0).toLocaleString() + '</div></div><div class="val-box"><div class="val-label">GAP</div><div class="val-num" style="color:#F7643B">-' + (c.discount_pct||0) + '%</div></div></div></div>').join('') || '<div style="color:#888;padding:8px 0;font-size:11px">Sin comparables disponibles</div>'}
     </div>
-
-    <!-- AI ANALYSIS -->
-    <div class="insight" style="margin-top:24px">
-      <div class="insight-label">◈ ANÁLISIS GENERADO POR CLAUDE AI · HYGGE DATA ANALYST</div>
-      <div class="insight-text" style="white-space:pre-line;line-height:1.8">\${aiAnalysis}</div>
+    <div class="insight" style="margin-top:20px" id="ai-analysis-block">
+      <div class="insight-label">ANALISIS IA · CLAUDE · HYGGE DATA ANALYST</div>
+      <div class="insight-text" style="white-space:pre-line" id="ai-analysis-text">Generando analisis...</div>
     </div>
-
-    <div style="margin-top:20px;padding:12px 16px;background:#252525;border-radius:6px;border:1px solid #373737">
-      <div style="font-size:8px;color:#888;letter-spacing:2px;margin-bottom:6px">MACRO REFERENCIAL · JUN 2026</div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap">
-        <span style="font-size:10px;color:#E3E1DE">USD/PEN <strong style="color:#E85555">3.78</strong></span>
-        <span style="font-size:10px;color:#E3E1DE">Tasa hip. <strong style="color:#95ABE8">8.2%</strong></span>
-        <span style="font-size:10px;color:#E3E1DE">Inflación <strong style="color:#E3E1DE">2.1%</strong></span>
-        <span style="font-size:10px;color:#E3E1DE">PBI Const. <strong style="color:#4CAF88">+4.8%</strong></span>
-        <span style="font-size:10px;color:#E3E1DE">Déficit <strong style="color:#F7643B">612K u.</strong></span>
+    <div style="margin-top:16px;padding:12px 16px;background:#252525;border-radius:6px;border:1px solid #373737">
+      <div style="font-size:8px;color:#888;letter-spacing:2px;margin-bottom:6px">MACRO · JUN 2026 · BCRP</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <span style="font-size:10px">USD/PEN <strong style="color:#E85555">3.78</strong></span>
+        <span style="font-size:10px">Tasa hip. <strong style="color:#95ABE8">8.2%</strong></span>
+        <span style="font-size:10px">Inflacion <strong>2.1%</strong></span>
+        <span style="font-size:10px">PBI Const. <strong style="color:#4CAF88">+4.8%</strong></span>
+        <span style="font-size:10px">Deficit hab. <strong style="color:#F7643B">612K u.</strong></span>
       </div>
     </div>
   </div>
@@ -1479,7 +1406,36 @@ Responde en español, tono ejecutivo, sin bullets, en párrafos corridos.`;
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
-  setTimeout(() => { w.print(); }, 800);
+
+  // Fetch AI analysis and inject into the open window
+  const pdfBtn = document.querySelector('[onclick*="exportProjectPDF"]');
+  if (pdfBtn) { pdfBtn.textContent = 'Generando...'; pdfBtn.disabled = true; }
+
+  const aiPrompt = 'Analiza en 200 palabras para Hygge Inmobiliaria: ' + p.name + ' en ' + p.district + ' Seg ' + p.segment + '. Precio lista $' + (p.list_price_m2_usd||0) + '/m2, cierre estimado $' + (p.close_price_m2_usd||0) + '/m2, diferencia vs mercado ' + (diff>0?'+':'') + diff + ' USD/m2, con ' + comps.length + ' comparables activos. Estructura tu respuesta en: POSICIONAMIENTO, OPORTUNIDAD, RIESGOS, CONCLUSION. Espanol, tono ejecutivo, parrafos corridos.';
+
+  fetch('/.netlify/functions/claude', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 500,
+      messages: [{role: 'user', content: aiPrompt}]
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    const text = data.content?.[0]?.text || 'Analisis no disponible.';
+    const el = w.document.getElementById('ai-analysis-text');
+    if (el) el.innerText = text;
+    if (pdfBtn) { pdfBtn.textContent = 'PDF'; pdfBtn.disabled = false; }
+    setTimeout(() => { w.print(); }, 1000);
+  })
+  .catch(() => {
+    const el = w.document.getElementById('ai-analysis-text');
+    if (el) el.innerText = 'Error al generar analisis IA.';
+    if (pdfBtn) { pdfBtn.textContent = 'PDF'; pdfBtn.disabled = false; }
+    setTimeout(() => { w.print(); }, 500);
+  });
 }
 
 // ─── INIT ────────────────────────────────────────────────────
