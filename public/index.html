@@ -196,6 +196,9 @@ canvas.minichart{display:block;margin-top:6px}
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <button id="add-btn" onclick="openAddModal()">★ + MI PROYECTO</button>
+    <button onclick="refreshData()" id="refresh-btn" style="background:rgba(78,207,136,.1);border:1px solid rgba(78,207,136,.3);
+      border-radius:6px;padding:5px 12px;color:var(--success);font-size:10px;cursor:pointer;
+      font-family:'Space Mono',monospace;font-weight:700;transition:all .2s">⟳ REFRESH</button>
     <div id="agent-bar"></div>
   </div>
 </div>
@@ -304,6 +307,27 @@ CONTEXTO REAL (datos scrapeados de Nexo Inmobiliario hoy):
 - Gap lista→cierre: seg A -4 a -6%, seg B -5 a -7%, seg C -7 a -12%
 Responde conciso, ejecutivo, con números reales. En español. SIEMPRE termina con una sección '## CONCLUSIÓN' con 2-3 puntos accionables para Hygge Inmobiliaria.`,
     suggestions:['¿Cuál es el gap lista→cierre real en San Isidro?','¿Qué zonas tienen mejor absorción ahora?','¿Cómo fijar el precio de lista óptimo para un proyecto A en Miraflores?']},
+  validator:{label:'VALIDADOR',icon:'⚠',color:T.warning,
+    sys:`Eres un validador de datos inmobiliarios para Hygge Inmobiliaria Lima. Tu rol es detectar datos anómalos o sospechosos en proyectos scrapeados de Nexo Inmobiliario.
+
+RANGOS VÁLIDOS Lima 2026:
+- Lima Moderna Seg A: $1,800–$5,000/m²
+- Lima Moderna Seg B: $1,200–$2,800/m²
+- Lima Moderna Seg C: $800–$1,800/m²
+- Lima Norte/Este Seg B/C: $600–$1,600/m²
+- Lima Sur/Centro: $500–$1,500/m²
+- Área típica: 30–300m² (fuera de esto es sospechoso)
+- Ticket mínimo realista: $30,000 USD
+- Ticket máximo realista: $2,000,000 USD
+
+Cuando analices proyectos, responde con:
+1. OUTLIERS DETECTADOS — lista los proyectos con precios fuera de rango con el motivo
+2. DATOS FALTANTES — proyectos sin área o sin precio
+3. ANOMALÍAS — proyectos donde precio/m² no cuadra con zona/segmento
+4. VEREDICTO — % de datos confiables y recomendación
+
+Sé directo y conciso. En español.`,
+    suggestions:['Analiza los precios de San Isidro — ¿hay outliers?','¿Qué proyectos tienen datos inconsistentes?','¿Qué porcentaje de la data es confiable?']},
   news:{label:'NEWS ANALYST',icon:'◉',color:T.naranja,
     sys:`Analista de noticias inmobiliarias para Hygge. Jun 2026: elecciones 2026 Perú generan volatilidad cambiaria. BCRP interviene. Lima Norte/Este crecen con VIS. Premium sostenido. Responde ejecutivo con impacto directo para desarrolladores. SIEMPRE termina con '## CONCLUSIÓN' con 2-3 implicancias concretas para Hygge.`,
     suggestions:['¿Qué impacto tienen las elecciones 2026 en precios?','¿Hay cambios regulatorios en construcción?','¿Qué zonas ganan más tracción?']},
@@ -356,6 +380,45 @@ function kpiCard({label, value, sub, trend, color, chartData}) {
 }
 
 // ─── DATA LOADING ───────────────────────────────────────────
+function validatePrice(p) {
+  // Returns true if price is within valid range for zone/segment
+  const pm2 = p.list_price_m2_usd;
+  if (!pm2) return false;
+  const zone = p.zone || '';
+  const seg = p.segment || 'B';
+  const ranges = {
+    'Lima Moderna': {A:[1800,5000], B:[1200,2800], C:[800,1800]},
+    'Lima Norte':   {A:[1000,2200], B:[700,1600],  C:[500,1200]},
+    'Lima Este':    {A:[1000,2200], B:[700,1600],  C:[500,1200]},
+    'Lima Sur':     {A:[900,2000],  B:[600,1500],  C:[400,1100]},
+    'Callao':       {A:[900,2000],  B:[600,1500],  C:[400,1100]},
+    'Lima Centro':  {A:[1000,2200], B:[700,1600],  C:[500,1200]},
+  };
+  const r = (ranges[zone] || ranges['Lima Moderna'])[seg] || [500, 5000];
+  return pm2 >= r[0] && pm2 <= r[1];
+}
+
+async function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '⟳ Actualizando...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('./projects.json?t=' + Date.now());
+    const data = await r.json();
+    const raw = data.projects || [];
+    ALL_PROJECTS = raw.filter(p => validatePrice(p));
+    const filtered_out = raw.length - ALL_PROJECTS.length;
+    document.getElementById('status-badge').innerHTML = 
+      `Lima RE Intelligence · <span class="live-dot">●</span> LIVE · ${ALL_PROJECTS.length} proyectos válidos${filtered_out > 0 ? ' (' + filtered_out + ' outliers filtrados)' : ''}`;
+    applyFilters();
+    btn.textContent = '✓ Actualizado';
+    setTimeout(() => { btn.textContent = '⟳ REFRESH'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    btn.textContent = '✗ Error';
+    setTimeout(() => { btn.textContent = '⟳ REFRESH'; btn.disabled = false; }, 2000);
+  }
+}
+
 async function loadData() {
   const saved = localStorage.getItem('hygge_own_projects');
   if (saved) { try { OWN_PROJECTS = JSON.parse(saved); } catch(e) {} }
@@ -364,7 +427,13 @@ async function loadData() {
     const r = await fetch('./projects.json');
     if (!r.ok) throw new Error('No data');
     const data = await r.json();
-    ALL_PROJECTS = data.projects || [];
+    const raw = data.projects || [];
+    ALL_PROJECTS = raw.filter(p => validatePrice(p));
+    const filtered_out = raw.length - ALL_PROJECTS.length;
+    if (filtered_out > 0) {
+      document.getElementById('loader-text').textContent = 
+        `${ALL_PROJECTS.length} proyectos válidos (${filtered_out} outliers filtrados)`;
+    }
     SCRAPE_DATE = data.date || '';
     document.getElementById('loader-text').textContent = `${ALL_PROJECTS.length} proyectos cargados`;
 
@@ -529,10 +598,6 @@ function renderDashboard(c) {
           style="background:rgba(149,171,232,.15);border:1px solid rgba(149,171,232,.3);border-radius:5px;
           padding:6px 10px;color:var(--lavanda);font-size:9px;cursor:pointer;font-family:'Space Mono',monospace">
           VER EN MAPA →</button>
-          <button onclick="deleteOwnProject('${p.id}')"
-            style="background:rgba(232,85,85,.15);border:1px solid rgba(232,85,85,.3);border-radius:5px;
-            padding:6px 10px;color:var(--danger);font-size:9px;cursor:pointer;font-family:'Space Mono',monospace">
-            ✕ ELIMINAR</button>
       </div>`;
     });
     c.appendChild(ownDiv);
@@ -568,27 +633,7 @@ function initMap() {
   MAP_INSTANCE = map;
   MAP_MARKERS = [];
 
-  // District center coordinates for fallback
-  const DIST_COORDS = {
-    'San Isidro':[-12.0931,-77.0465],'Miraflores':[-12.1219,-77.0291],
-    'Barranco':[-12.1478,-77.0228],'Surco':[-12.15,-76.99],
-    'San Borja':[-12.1056,-77.0031],'La Molina':[-12.0856,-76.9424],
-    'Jesús María':[-12.0731,-77.0531],'Magdalena':[-12.0894,-77.0681],
-    'Lince':[-12.0831,-77.0361],'Pueblo Libre':[-12.0731,-77.0731],
-    'San Miguel':[-12.0769,-77.0928],'Surquillo':[-12.1206,-77.0131],
-    'Los Olivos':[-11.9781,-77.0681],'Ate':[-12.0281,-76.9281],
-    'Callao':[-12.0531,-77.1181],'VES':[-12.2181,-76.9481],
-    'Cercado':[-12.0553,-77.0311],'Chorrillos':[-12.17,-77.02],
-  };
-
   FILTERED.forEach(p => {
-    // Use geocoded coords or fallback to district center with random offset
-    if(!p.lat || !p.lng) {
-      const dc = DIST_COORDS[p.district];
-      if(!dc) return;
-      p.lat = dc[0] + (Math.random()-0.5)*0.02;
-      p.lng = dc[1] + (Math.random()-0.5)*0.02;
-    }
     if(!p.lat||!p.lng) return;
     const col = getMapColor(p);
     const sz = p.isOwn ? 38 : 28;
