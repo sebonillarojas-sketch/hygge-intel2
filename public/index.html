@@ -457,6 +457,11 @@ function deleteOwnProject(id) {
   applyFilters();
 }
 
+function setSelectedAndOpen(idx) {
+  const p = FILTERED[idx];
+  if(p) openProject(p);
+}
+
 function applyFilters() {
   const dist = document.getElementById('f-dist').value;
   const seg  = document.getElementById('f-seg').value;
@@ -633,7 +638,24 @@ function initMap() {
   MAP_INSTANCE = map;
   MAP_MARKERS = [];
 
+  const DIST_COORDS = {
+    'San Isidro':[-12.0931,-77.0465],'Miraflores':[-12.1219,-77.0291],
+    'Barranco':[-12.1478,-77.0228],'Surco':[-12.15,-76.99],
+    'San Borja':[-12.1056,-77.0031],'La Molina':[-12.0856,-76.9424],
+    'Jesús María':[-12.0731,-77.0531],'Magdalena':[-12.0894,-77.0681],
+    'Lince':[-12.0831,-77.0361],'Pueblo Libre':[-12.0731,-77.0731],
+    'San Miguel':[-12.0769,-77.0928],'Surquillo':[-12.1206,-77.0131],
+    'Los Olivos':[-11.9781,-77.0681],'Ate':[-12.0281,-76.9281],
+    'Callao':[-12.0531,-77.1181],'VES':[-12.2181,-76.9481],
+    'Cercado':[-12.0553,-77.0311],'Chorrillos':[-12.17,-77.02],
+  };
   FILTERED.forEach(p => {
+    if(!p.lat || !p.lng) {
+      const dc = DIST_COORDS[p.district];
+      if(!dc) return;
+      p.lat = dc[0] + (Math.random()-0.5)*0.018;
+      p.lng = dc[1] + (Math.random()-0.5)*0.018;
+    }
     if(!p.lat||!p.lng) return;
     const col = getMapColor(p);
     const sz = p.isOwn ? 38 : 28;
@@ -965,7 +987,7 @@ function renderPoder(c) {
   c.innerHTML = `
     <div class="data-table" style="margin-bottom:16px">
       <table>
-        <thead><tr><th>Distrito</th><th>Junior</th><th>Mid</th><th>Senior</th><th>Exec</th><th>Pareja Senior</th></tr></thead>
+        <thead><tr><th>Distrito</th><th>Junior (S/)</th><th>Mid (S/)</th><th>Senior (S/)</th><th>Exec (S/)</th><th>Pareja Senior (S/)</th></tr></thead>
         <tbody>${districts.map(d=>{const s=SALARY[d];return `<tr>
           <td style="font-weight:600">${d}</td>
           <td class="mono" style="color:var(--light)">S/${fmt(s.junior)}</td>
@@ -989,7 +1011,7 @@ function renderPoder(c) {
     <div style="background:rgba(149,171,232,.08);border:1px solid rgba(149,171,232,.2);border-radius:8px;padding:16px">
       <div class="mono" style="font-size:10px;color:var(--lavanda);letter-spacing:1.5px;margin-bottom:10px">SIMULADOR — Haz clic en cualquier proyecto para análisis completo de capacidad de pago</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${FILTERED.slice(0,8).map(p=>`<button onclick="openProject(${JSON.stringify(JSON.stringify(p)).slice(1,-1)})" 
+        ${FILTERED.slice(0,8).map((p,i)=>`<button onclick="setSelectedAndOpen(${i})" 
           style="background:${p.isOwn?'rgba(168,85,247,.2)':'var(--charcoal)'};border:1px solid ${p.isOwn?'rgba(168,85,247,.4)':'rgba(85,85,85,.4)'};
           border-radius:6px;padding:8px 12px;color:${p.isOwn?T.purple:T.crema};font-size:11px;cursor:pointer;text-align:left;font-family:'Space Mono',monospace">
           <div style="font-weight:700">${p.isOwn?'★ ':''}${p.name}</div>
